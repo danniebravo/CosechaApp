@@ -6,6 +6,7 @@ const {
 } = require('../middlewares/validators');
 
 const authCtrl = require('../controllers/authController');
+const onboardingCtrl = require('../controllers/onboardingController');
 const fincasCtrl = require('../controllers/fincasController');
 const lotesCtrl = require('../controllers/lotesController');
 const cosechasCtrl = require('../controllers/cosechasController');
@@ -22,6 +23,10 @@ router.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date
 router.post('/auth/registro', usuarioValidators.registro, authCtrl.registrar);
 router.post('/auth/login', usuarioValidators.login, authCtrl.login);
 router.get('/auth/perfil', auth, authCtrl.perfil);
+
+// ── Onboarding ──
+router.post('/onboarding', auth, onboardingCtrl.completar);
+router.get('/onboarding/status', auth, onboardingCtrl.status);
 
 // ── Fincas ──
 router.get('/fincas', auth, fincasCtrl.listar);

@@ -143,9 +143,9 @@ export default function RegistroPage() {
 
     setLoading(true);
     try {
-      await registro(form);
+      const usr = await registro(form);
       toast.success('Cuenta creada exitosamente');
-      navigate('/');
+      navigate(usr.onboarding_completed ? '/' : '/onboarding');
     } catch (err) {
       const msg = err.message || 'Error al registrar';
       // Errores específicos del backend

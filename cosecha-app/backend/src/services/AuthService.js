@@ -27,8 +27,13 @@ class AuthService {
     });
 
     const token = this.generarToken(usuario);
+
+    // Usuario recién creado → onboarding siempre false
     return {
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
+      usuario: {
+        id: usuario.id, nombre: usuario.nombre, email: usuario.email,
+        rol: usuario.rol, onboarding_completed: false,
+      },
       token,
     };
   }
@@ -55,8 +60,15 @@ class AuthService {
     }
 
     const token = this.generarToken(usuario);
+
+    // Calcular onboarding dinámicamente
+    const onboarding_completed = await Usuario.checkOnboarding(usuario.id);
+
     return {
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
+      usuario: {
+        id: usuario.id, nombre: usuario.nombre, email: usuario.email,
+        rol: usuario.rol, onboarding_completed,
+      },
       token,
     };
   }
@@ -70,7 +82,11 @@ class AuthService {
   }
 
   async getPerfil(id) {
-    return Usuario.findByIdSafe(id);
+    const usuario = await Usuario.findByIdSafe(id);
+    if (!usuario) return null;
+
+    const onboarding_completed = await Usuario.checkOnboarding(id);
+    return { ...usuario, onboarding_completed };
   }
 }
 

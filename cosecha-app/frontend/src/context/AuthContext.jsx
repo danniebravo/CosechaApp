@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -50,8 +50,26 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
+  /**
+   * Actualiza onboarding_completed en el estado del usuario.
+   * Se llama después de completar el wizard de onboarding.
+   */
+  const setOnboardingCompleted = useCallback(() => {
+    setUsuario((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, onboarding_completed: true };
+      localStorage.setItem('usuario', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, registro, logout, isAuth: !!usuario }}>
+    <AuthContext.Provider value={{
+      usuario, cargando, login, registro, logout,
+      isAuth: !!usuario,
+      onboardingCompleted: usuario?.onboarding_completed ?? false,
+      setOnboardingCompleted,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -66,6 +66,12 @@ export const authAPI = {
   perfil: () => api.get('/auth/perfil'),
 };
 
+// ── Onboarding ──
+export const onboardingAPI = {
+  completar: (data) => api.post('/onboarding', data),
+  status: () => api.get('/onboarding/status'),
+};
+
 // ── Fincas ──
 export const fincasAPI = {
   listar: () => api.get('/fincas'),

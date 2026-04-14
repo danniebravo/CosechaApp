@@ -1,9 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { ProtectedRoute, PublicRoute } from './routes/Guards';
+import { ProtectedRoute, PublicRoute, OnboardingRoute } from './routes/Guards';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegistroPage from './pages/RegistroPage';
+import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import FincasPage from './pages/FincasPage';
 import LotesPage from './pages/LotesPage';
@@ -23,11 +24,14 @@ export default function App() {
         }}
       />
       <Routes>
-        {/* Rutas públicas */}
+        {/* Rutas publicas */}
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/registro" element={<PublicRoute><RegistroPage /></PublicRoute>} />
 
-        {/* Rutas protegidas */}
+        {/* Onboarding — requiere auth, pero NO requiere onboarding completo */}
+        <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
+
+        {/* Rutas protegidas — requieren auth + onboarding completo */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<DashboardPage />} />
           <Route path="fincas" element={<FincasPage />} />
@@ -42,7 +46,7 @@ export default function App() {
           <div className="min-h-screen flex items-center justify-center bg-tierra-50">
             <div className="text-center">
               <h1 className="font-display font-bold text-6xl text-tierra-300">404</h1>
-              <p className="text-tierra-500 mt-2">Página no encontrada</p>
+              <p className="text-tierra-500 mt-2">P&aacute;gina no encontrada</p>
               <a href="/" className="btn-primary inline-block mt-4 text-sm">Ir al inicio</a>
             </div>
           </div>

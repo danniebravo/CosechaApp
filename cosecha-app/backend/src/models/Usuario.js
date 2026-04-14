@@ -20,6 +20,23 @@ class Usuario extends BaseModel {
     );
     return result.rows[0] || null;
   }
+
+  /**
+   * Calcula dinámicamente si el usuario completó el onboarding.
+   * Requiere: al menos 1 finca activa con al menos 1 lote activo.
+   */
+  async checkOnboarding(usuarioId) {
+    const result = await query(
+      `SELECT EXISTS (
+        SELECT 1
+        FROM fincas f
+        INNER JOIN lotes l ON l.finca_id = f.id AND l.activo = true
+        WHERE f.usuario_id = $1 AND f.activa = true
+      ) AS completed`,
+      [usuarioId]
+    );
+    return result.rows[0].completed;
+  }
 }
 
 module.exports = new Usuario();

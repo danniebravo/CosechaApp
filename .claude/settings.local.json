@@ -9,7 +9,17 @@
       "Read(//c/Program Files/PostgreSQL//**)",
       "Read(//c/Program Files/PostgreSQL/**)",
       "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -p 5432 -U postgres -c \"SELECT datname FROM pg_database WHERE datname = 'cosecha_app';\")",
-      "Bash(node -e \"const {Pool} = require\\('pg'\\); const p = new Pool\\({host:'localhost',port:5432,user:'postgres',password:'Dannie2026\\\\$',database:'cosecha_app'}\\); p.query\\('SELECT current_database\\(\\)'\\).then\\(r => {console.log\\('DB OK:', r.rows[0].current_database\\); p.end\\(\\)}\\).catch\\(e => {console.log\\('ERROR:', e.message\\); p.end\\(\\)}\\)\")"
+      "Bash(node -e \"const {Pool} = require\\('pg'\\); const p = new Pool\\({host:'localhost',port:5432,user:'postgres',password:'Dannie2026\\\\$',database:'cosecha_app'}\\); p.query\\('SELECT current_database\\(\\)'\\).then\\(r => {console.log\\('DB OK:', r.rows[0].current_database\\); p.end\\(\\)}\\).catch\\(e => {console.log\\('ERROR:', e.message\\); p.end\\(\\)}\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"const d=require\\('./co.json'\\); console.log\\('Departamentos:', d.length\\); let total=0; d.forEach\\(x => total += x.municipios.length\\); console.log\\('Total municipios:', total\\); console.log\\('Boyacá:', d.find\\(x=>x.nombre==='Boyacá'\\)?.municipios.length\\); console.log\\('Cundinamarca:', d.find\\(x=>x.nombre==='Cundinamarca'\\)?.municipios.length\\);\")",
+      "Bash(npx vite:*)",
+      "Bash(node -e \"try { const d = require\\('./src/data/co.json'\\); console.log\\('OK - departamentos:', d.length, '- primer:', d[0]?.nombre, '- municipios:', d[0]?.municipios?.length\\); } catch\\(e\\) { console.log\\('ERROR:', e.message\\); }\")",
+      "Bash(curl -s http://localhost:5173/onboarding)",
+      "Bash(curl -s \"http://localhost:5173/src/pages/OnboardingPage.jsx\")",
+      "Bash(curl -s \"http://localhost:5173/src/index.css\")",
+      "Bash(node -e \"console.log\\('react:', require\\('react/package.json'\\).version\\); console.log\\('react-leaflet:', require\\('react-leaflet/package.json'\\).version\\); console.log\\('@react-leaflet/core:', require\\('@react-leaflet/core/package.json'\\).version\\); console.log\\('leaflet:', require\\('leaflet/package.json'\\).version\\);\")",
+      "Bash(node -e \"const p = require\\('C:/Users/LENOVO/Desktop/Agro/cosecha-app/frontend/node_modules/react-leaflet/package.json'\\); console.log\\('version:', p.version\\); console.log\\('peerDeps:', JSON.stringify\\(p.peerDependencies, null, 2\\)\\);\")",
+      "Bash(npm install:*)"
     ]
   }
 }

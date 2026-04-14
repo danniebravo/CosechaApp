@@ -17,8 +17,8 @@ export default function LoginPage() {
     if (!email || !password) { toast.error('Completa todos los campos'); return; }
     setLoading(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const usr = await login(email, password);
+      navigate(usr.onboarding_completed ? '/' : '/onboarding');
     } catch (err) {
       toast.error(err.message || 'Error al iniciar sesión');
     } finally {
