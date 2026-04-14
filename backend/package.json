@@ -1,0 +1,27 @@
+{
+  "name": "cosecha-app-backend",
+  "version": "1.0.0",
+  "description": "API REST - Sistema de Gestión de Cosechas de Papa",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "db:create": "node src/config/dbCreate.js",
+    "db:migrate": "node src/config/dbMigrate.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-validator": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.0",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
