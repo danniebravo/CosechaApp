@@ -28,20 +28,31 @@ export function AuthProvider({ children }) {
     verificar();
   }, []);
 
-  const login = async (email, password) => {
-    const { usuario: usr, token } = await authAPI.login({ email, password });
+  const _saveSession = (usr, token) => {
     localStorage.setItem('token', token);
     localStorage.setItem('usuario', JSON.stringify(usr));
     setUsuario(usr);
     return usr;
   };
 
+  const login = async (email, password) => {
+    const { usuario: usr, token } = await authAPI.login({ email, password });
+    return _saveSession(usr, token);
+  };
+
+  const loginGoogle = async (idToken) => {
+    const { usuario: usr, token } = await authAPI.loginGoogle({ id_token: idToken });
+    return _saveSession(usr, token);
+  };
+
+  const loginByOtp = async (phone, otp) => {
+    const { usuario: usr, token } = await authAPI.verifyLoginOtp({ phone, otp });
+    return _saveSession(usr, token);
+  };
+
   const registro = async (datos) => {
     const { usuario: usr, token } = await authAPI.registro(datos);
-    localStorage.setItem('token', token);
-    localStorage.setItem('usuario', JSON.stringify(usr));
-    setUsuario(usr);
-    return usr;
+    return _saveSession(usr, token);
   };
 
   const logout = () => {
@@ -50,10 +61,6 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
-  /**
-   * Actualiza onboarding_completed en el estado del usuario.
-   * Se llama después de completar el wizard de onboarding.
-   */
   const setOnboardingCompleted = useCallback(() => {
     setUsuario((prev) => {
       if (!prev) return prev;
@@ -65,7 +72,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      usuario, cargando, login, registro, logout,
+      usuario, cargando, login, loginGoogle, loginByOtp, registro, logout,
       isAuth: !!usuario,
       onboardingCompleted: usuario?.onboarding_completed ?? false,
       setOnboardingCompleted,

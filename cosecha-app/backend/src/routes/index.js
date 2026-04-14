@@ -22,7 +22,14 @@ router.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date
 // ── Auth ──
 router.post('/auth/registro', usuarioValidators.registro, authCtrl.registrar);
 router.post('/auth/login', usuarioValidators.login, authCtrl.login);
+router.post('/auth/login-google', usuarioValidators.loginGoogle, authCtrl.loginGoogle);
+router.post('/auth/send-login-otp', usuarioValidators.sendLoginOtp, authCtrl.sendLoginOtp);
+router.post('/auth/verify-login-otp', usuarioValidators.verifyLoginOtp, authCtrl.verifyLoginOtp);
 router.get('/auth/perfil', auth, authCtrl.perfil);
+router.post('/auth/forgot-password', usuarioValidators.forgotPassword, authCtrl.forgotPassword);
+router.post('/auth/forgot-by-phone', usuarioValidators.forgotByPhone, authCtrl.forgotByPhone);
+router.post('/auth/verify-otp', usuarioValidators.verifyOtp, authCtrl.verifyOtp);
+router.post('/auth/reset-password', usuarioValidators.resetPassword, authCtrl.resetPassword);
 
 // ── Onboarding ──
 router.post('/onboarding', auth, onboardingCtrl.completar);

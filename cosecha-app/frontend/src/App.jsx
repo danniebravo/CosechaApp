@@ -4,6 +4,8 @@ import { ProtectedRoute, PublicRoute, OnboardingRoute } from './routes/Guards';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegistroPage from './pages/RegistroPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import FincasPage from './pages/FincasPage';
@@ -27,11 +29,13 @@ export default function App() {
         {/* Rutas publicas */}
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/registro" element={<PublicRoute><RegistroPage /></PublicRoute>} />
+        <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Onboarding — requiere auth, pero NO requiere onboarding completo */}
+        {/* Onboarding */}
         <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
 
-        {/* Rutas protegidas — requieren auth + onboarding completo */}
+        {/* Rutas protegidas */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<DashboardPage />} />
           <Route path="fincas" element={<FincasPage />} />
@@ -46,7 +50,7 @@ export default function App() {
           <div className="min-h-screen flex items-center justify-center bg-tierra-50">
             <div className="text-center">
               <h1 className="font-display font-bold text-6xl text-tierra-300">404</h1>
-              <p className="text-tierra-500 mt-2">P&aacute;gina no encontrada</p>
+              <p className="text-tierra-500 mt-2">Pagina no encontrada</p>
               <a href="/" className="btn-primary inline-block mt-4 text-sm">Ir al inicio</a>
             </div>
           </div>

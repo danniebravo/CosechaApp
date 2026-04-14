@@ -54,6 +54,46 @@ const usuarioValidators = {
     body('password').notEmpty().withMessage('Contraseña requerida'),
     validate,
   ],
+  loginGoogle: [
+    body('id_token').notEmpty().withMessage('Token de Google requerido'),
+    validate,
+  ],
+  sendLoginOtp: [
+    body('phone').trim().notEmpty().withMessage('Número requerido')
+      .matches(/^\+\d{7,20}$/).withMessage('Formato inválido'),
+    validate,
+  ],
+  verifyLoginOtp: [
+    body('phone').trim().notEmpty().withMessage('Teléfono requerido'),
+    body('otp').trim().isLength({ min: 6, max: 6 }).withMessage('Código de 6 dígitos')
+      .isNumeric().withMessage('Solo números'),
+    validate,
+  ],
+  forgotPassword: [
+    body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
+    validate,
+  ],
+  forgotByPhone: [
+    body('phone').trim().notEmpty().withMessage('Número de teléfono requerido')
+      .matches(/^\+\d{7,20}$/).withMessage('Formato inválido. Ej: +573001234567'),
+    validate,
+  ],
+  verifyOtp: [
+    body('phone').trim().notEmpty().withMessage('Teléfono requerido'),
+    body('otp').trim().notEmpty().withMessage('Código requerido')
+      .isLength({ min: 6, max: 6 }).withMessage('El código debe tener 6 dígitos')
+      .isNumeric().withMessage('El código debe ser numérico'),
+    validate,
+  ],
+  resetPassword: [
+    body('token').notEmpty().withMessage('Token requerido'),
+    body('password')
+      .isLength({ min: 8 }).withMessage('La contraseña debe tener mínimo 8 caracteres')
+      .matches(/[A-Z]/).withMessage('La contraseña debe tener al menos una mayúscula')
+      .matches(/[0-9]/).withMessage('La contraseña debe tener al menos un número')
+      .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/).withMessage('La contraseña debe tener al menos un carácter especial'),
+    validate,
+  ],
 };
 
 const fincaValidators = {

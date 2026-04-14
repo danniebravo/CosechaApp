@@ -62,8 +62,15 @@ const api = new ApiService();
 // ── Auth ──
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
+  loginGoogle: (data) => api.post('/auth/login-google', data),
+  sendLoginOtp: (data) => api.post('/auth/send-login-otp', data),
+  verifyLoginOtp: (data) => api.post('/auth/verify-login-otp', data),
   registro: (data) => api.post('/auth/registro', data),
   perfil: () => api.get('/auth/perfil'),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  forgotByPhone: (data) => api.post('/auth/forgot-by-phone', data),
+  verifyOtp: (data) => api.post('/auth/verify-otp', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 // ── Onboarding ──
