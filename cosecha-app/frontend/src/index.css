@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply min-h-screen;
+  }
+  input, select, textarea {
+    @apply outline-none;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-campo-600 text-white px-5 py-2.5 rounded-xl font-semibold
+           hover:bg-campo-700 active:scale-[0.97] transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-tierra-100 text-tierra-800 px-5 py-2.5 rounded-xl font-semibold
+           hover:bg-tierra-200 active:scale-[0.97] transition-all duration-150;
+  }
+  .btn-danger {
+    @apply bg-red-500 text-white px-5 py-2.5 rounded-xl font-semibold
+           hover:bg-red-600 active:scale-[0.97] transition-all duration-150;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border border-tierra-200 bg-white
+           focus:border-campo-500 focus:ring-2 focus:ring-campo-200
+           transition-all text-tierra-900 placeholder:text-tierra-400;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-tierra-100 shadow-sm;
+  }
+  .label {
+    @apply block text-sm font-semibold text-tierra-700 mb-1.5;
+  }
+  .page-title {
+    @apply text-2xl md:text-3xl font-display font-bold text-tierra-900;
+  }
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cdab7d; border-radius: 10px; }
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
