@@ -13,12 +13,40 @@ const validate = (req, res, next) => {
 
 const uuidParam = param('id').isUUID().withMessage('ID inválido');
 
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/;
+
+const validarTelefono = (value, { req }) => {
+  if (!value) return true; // telefono es opcional
+  const prefijo = req.body.telefono_prefijo || '+57';
+  const soloDigitos = value.replace(/\s/g, '');
+
+  if (!/^\d+$/.test(soloDigitos)) {
+    throw new Error('El teléfono solo debe contener números');
+  }
+
+  if (prefijo === '+57') {
+    if (soloDigitos.length !== 10) {
+      throw new Error('Para Colombia el teléfono debe tener exactamente 10 dígitos');
+    }
+  } else {
+    if (soloDigitos.length < 7 || soloDigitos.length > 15) {
+      throw new Error('El teléfono debe tener entre 7 y 15 dígitos');
+    }
+  }
+  return true;
+};
+
 const usuarioValidators = {
   registro: [
     body('nombre').trim().notEmpty().withMessage('Nombre requerido').isLength({ max: 100 }),
     body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
-    body('password').isLength({ min: 6 }).withMessage('Mínimo 6 caracteres'),
-    body('telefono').optional().trim().isLength({ max: 20 }),
+    body('password')
+      .isLength({ min: 8 }).withMessage('La contraseña debe tener mínimo 8 caracteres')
+      .matches(/[A-Z]/).withMessage('La contraseña debe tener al menos una mayúscula')
+      .matches(/[0-9]/).withMessage('La contraseña debe tener al menos un número')
+      .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/).withMessage('La contraseña debe tener al menos un carácter especial'),
+    body('telefono_prefijo').optional().trim().matches(/^\+\d{1,4}$/).withMessage('Prefijo inválido'),
+    body('telefono').optional({ checkFalsy: true }).trim().custom(validarTelefono),
     validate,
   ],
   login: [

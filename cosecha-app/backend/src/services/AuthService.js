@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 
 class AuthService {
-  async registrar({ nombre, email, password, telefono }) {
+  async registrar({ nombre, email, password, telefono, telefono_prefijo }) {
     const existe = await Usuario.findByEmail(email);
     if (existe) {
       const err = new Error('Ya existe una cuenta con este email');
@@ -14,8 +14,16 @@ class AuthService {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
+    // Concatenar prefijo + número sin espacios → "+573001234567"
+    let telefonoCompleto = null;
+    if (telefono && telefono.trim()) {
+      const prefijo = telefono_prefijo || '+57';
+      const numero = telefono.replace(/\s/g, '');
+      telefonoCompleto = `${prefijo}${numero}`;
+    }
+
     const usuario = await Usuario.create({
-      nombre, email, password_hash, telefono,
+      nombre, email, password_hash, telefono: telefonoCompleto,
     });
 
     const token = this.generarToken(usuario);

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head -200 /c/Users/LENOVO/Desktop/Agro/cosecha-app/database/*.sql)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(sc query:*)",
+      "Bash(tasklist)",
+      "Bash(psql -h localhost -p 5432 -U postgres -c \"SELECT datname FROM pg_database WHERE datname = 'cosecha_app';\")",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -p 5432 -U postgres -c \"SELECT datname FROM pg_database WHERE datname = 'cosecha_app';\")",
+      "Bash(node -e \"const {Pool} = require\\('pg'\\); const p = new Pool\\({host:'localhost',port:5432,user:'postgres',password:'Dannie2026\\\\$',database:'cosecha_app'}\\); p.query\\('SELECT current_database\\(\\)'\\).then\\(r => {console.log\\('DB OK:', r.rows[0].current_database\\); p.end\\(\\)}\\).catch\\(e => {console.log\\('ERROR:', e.message\\); p.end\\(\\)}\\)\")"
+    ]
+  }
+}

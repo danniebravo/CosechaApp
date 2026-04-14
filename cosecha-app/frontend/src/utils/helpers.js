@@ -54,3 +54,55 @@ export const CALIDADES = [
   { value: 'tercera', label: 'Tercera' },
   { value: 'descarte', label: 'Descarte' },
 ];
+
+// ── Validaciones de registro ──
+
+export const PREFIJOS_TELEFONICOS = [
+  { codigo: '+57',  pais: 'Colombia',       bandera: '\uD83C\uDDE8\uD83C\uDDF4' },
+  { codigo: '+1',   pais: 'Estados Unidos',  bandera: '\uD83C\uDDFA\uD83C\uDDF8' },
+  { codigo: '+52',  pais: 'M\u00e9xico',    bandera: '\uD83C\uDDF2\uD83C\uDDFD' },
+  { codigo: '+34',  pais: 'Espa\u00f1a',    bandera: '\uD83C\uDDEA\uD83C\uDDF8' },
+  { codigo: '+51',  pais: 'Per\u00fa',      bandera: '\uD83C\uDDF5\uD83C\uDDEA' },
+  { codigo: '+593', pais: 'Ecuador',         bandera: '\uD83C\uDDEA\uD83C\uDDE8' },
+  { codigo: '+58',  pais: 'Venezuela',       bandera: '\uD83C\uDDFB\uD83C\uDDEA' },
+  { codigo: '+56',  pais: 'Chile',           bandera: '\uD83C\uDDE8\uD83C\uDDF1' },
+  { codigo: '+54',  pais: 'Argentina',       bandera: '\uD83C\uDDE6\uD83C\uDDF7' },
+  { codigo: '+55',  pais: 'Brasil',          bandera: '\uD83C\uDDE7\uD83C\uDDF7' },
+  { codigo: '+507', pais: 'Panam\u00e1',    bandera: '\uD83C\uDDF5\uD83C\uDDE6' },
+  { codigo: '+506', pais: 'Costa Rica',      bandera: '\uD83C\uDDE8\uD83C\uDDF7' },
+];
+
+export const validarPassword = (password) => {
+  const reglas = [
+    { test: (p) => p.length >= 8, mensaje: 'M\u00ednimo 8 caracteres', key: 'length' },
+    { test: (p) => /[A-Z]/.test(p), mensaje: 'Al menos una may\u00fascula', key: 'upper' },
+    { test: (p) => /[0-9]/.test(p), mensaje: 'Al menos un n\u00famero', key: 'number' },
+    { test: (p) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p), mensaje: 'Al menos un car\u00e1cter especial (!@#$...)', key: 'special' },
+  ];
+  return reglas.map((r) => ({ ...r, cumple: r.test(password || '') }));
+};
+
+export const validarEmail = (email) => {
+  if (!email) return 'El email es requerido';
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!regex.test(email)) return 'Formato de email inv\u00e1lido';
+  return null;
+};
+
+export const validarTelefono = (numero, prefijo = '+57') => {
+  if (!numero) return null; // opcional
+  const soloDigitos = numero.replace(/\s/g, '');
+  if (!/^\d+$/.test(soloDigitos)) return 'Solo n\u00fameros permitidos';
+  if (prefijo === '+57') {
+    if (soloDigitos.length !== 10) return 'Para Colombia debe tener exactamente 10 d\u00edgitos';
+  } else {
+    if (soloDigitos.length < 7 || soloDigitos.length > 15) return 'Debe tener entre 7 y 15 d\u00edgitos';
+  }
+  return null;
+};
+
+export const validarNombre = (nombre) => {
+  if (!nombre || !nombre.trim()) return 'El nombre es requerido';
+  if (nombre.trim().length < 3) return 'M\u00ednimo 3 caracteres';
+  return null;
+};
