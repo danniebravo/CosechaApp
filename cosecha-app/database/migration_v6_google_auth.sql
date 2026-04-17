@@ -10,3 +10,6 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 
 
 -- Indice para busqueda rapida por google_id
 CREATE INDEX IF NOT EXISTS idx_usuarios_google_id ON usuarios(google_id) WHERE google_id IS NOT NULL;
+
+-- Las cuentas de Google no tienen password local: permitir NULL
+ALTER TABLE usuarios ALTER COLUMN password_hash DROP NOT NULL;

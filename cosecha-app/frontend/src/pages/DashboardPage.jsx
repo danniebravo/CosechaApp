@@ -2,7 +2,7 @@ import { useAuth } from '../context/AuthContext';
 import { useApi } from '../hooks/useApi';
 import { cosechasAPI } from '../services/api';
 import { LoadingPage, ErrorMsg, StatCard, EmptyState } from '../components/ui';
-import { formatCOP, formatKg, ESTADOS } from '../utils/helpers';
+import { formatCOP, formatKg, ESTADOS, getGreeting } from '../utils/helpers';
 import { TrendingUp, DollarSign, Package, AlertTriangle, Sprout, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -30,7 +30,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Saludo */}
       <div>
-        <h1 className="page-title">Hola, {usuario?.nombre?.split(' ')[0]} 👋</h1>
+        <h1 className="page-title">{getGreeting(usuario?.nombre)} 👋</h1>
         <p className="text-tierra-500 text-sm mt-1">Resumen de tus cosechas</p>
       </div>
 

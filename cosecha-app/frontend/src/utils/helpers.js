@@ -83,9 +83,10 @@ export const validarPassword = (password) => {
 };
 
 export const validarEmail = (email) => {
-  if (!email) return 'El email es requerido';
+  const value = (email || '').trim();
+  if (!value) return 'Ingresa tu correo electr\u00f3nico';
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!regex.test(email)) return 'Formato de email inv\u00e1lido';
+  if (!regex.test(value)) return 'Ingresa un correo electr\u00f3nico v\u00e1lido';
   return null;
 };
 
@@ -105,4 +106,26 @@ export const validarNombre = (nombre) => {
   if (!nombre || !nombre.trim()) return 'El nombre es requerido';
   if (nombre.trim().length < 3) return 'M\u00ednimo 3 caracteres';
   return null;
+};
+
+// ── Saludo dinámico según la hora local ──
+//
+//   05:00–11:59 → "Buenos días"
+//   12:00–18:59 → "Buenas tardes"
+//   19:00–23:59 → "Buenas noches"
+//   00:00–04:59 → "Bienvenido de vuelta"
+//
+// Si recibe `nombre`, lo concatena solo si tiene contenido válido
+// (usa el primer nombre). Sin nombre, devuelve la versión genérica
+// sin coma colgante ni espacios.
+export const getGreeting = (nombre, date = new Date()) => {
+  const h = date.getHours();
+  let saludo;
+  if (h >= 5  && h <= 11) saludo = 'Buenos d\u00edas';
+  else if (h >= 12 && h <= 18) saludo = 'Buenas tardes';
+  else if (h >= 19 && h <= 23) saludo = 'Buenas noches';
+  else                         saludo = 'Bienvenido de vuelta';
+
+  const primerNombre = (nombre || '').trim().split(/\s+/)[0];
+  return primerNombre ? `${saludo}, ${primerNombre}` : saludo;
 };

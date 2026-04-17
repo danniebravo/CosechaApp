@@ -24,13 +24,43 @@ CREATE TABLE usuarios (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    telefono VARCHAR(20),
+    -- password_hash es NULL para cuentas creadas via Google OAuth
+    password_hash VARCHAR(255),
+    telefono VARCHAR(20) UNIQUE,
     rol rol_usuario DEFAULT 'agricultor',
     activo BOOLEAN DEFAULT true,
+
+    -- Bloqueo por intentos fallidos (migration v4)
+    failed_login_attempts INTEGER DEFAULT 0,
+    locked_until TIMESTAMP DEFAULT NULL,
+
+    -- Reset de contrasena por email (migration v4)
+    reset_token_hash VARCHAR(255) DEFAULT NULL,
+    reset_token_expires_at TIMESTAMP DEFAULT NULL,
+    reset_method VARCHAR(20) DEFAULT NULL,
+
+    -- OTP por celular (migration v5)
+    phone_otp_hash VARCHAR(255) DEFAULT NULL,
+    phone_otp_expires_at TIMESTAMP DEFAULT NULL,
+    phone_otp_attempts INTEGER DEFAULT 0,
+
+    -- Google OAuth (migration v6)
+    google_id VARCHAR(255) UNIQUE DEFAULT NULL,
+    auth_provider VARCHAR(20) DEFAULT 'local',
+
+    -- Cooldown / anti-abuso de reenvios (migration v7)
+    phone_otp_last_sent_at TIMESTAMP DEFAULT NULL,
+    phone_otp_send_count INTEGER DEFAULT 0,
+    phone_otp_window_started_at TIMESTAMP DEFAULT NULL,
+    reset_email_last_sent_at TIMESTAMP DEFAULT NULL,
+    reset_email_send_count INTEGER DEFAULT 0,
+    reset_email_window_started_at TIMESTAMP DEFAULT NULL,
+
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX idx_usuarios_google_id ON usuarios(google_id) WHERE google_id IS NOT NULL;
 
 -- ============================================
 -- TABLA: fincas

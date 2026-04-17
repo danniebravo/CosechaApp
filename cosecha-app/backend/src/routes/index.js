@@ -31,6 +31,12 @@ router.post('/auth/forgot-by-phone', usuarioValidators.forgotByPhone, authCtrl.f
 router.post('/auth/verify-otp', usuarioValidators.verifyOtp, authCtrl.verifyOtp);
 router.post('/auth/reset-password', usuarioValidators.resetPassword, authCtrl.resetPassword);
 
+// ── Dev-only: ayudantes para probar el bloqueo por intentos fallidos ──
+if (process.env.NODE_ENV !== 'production') {
+  router.get ('/auth/dev/attempts',        authCtrl.devAttemptsStatus);
+  router.post('/auth/dev/reset-attempts',  authCtrl.devResetAttempts);
+}
+
 // ── Onboarding ──
 router.post('/onboarding', auth, onboardingCtrl.completar);
 router.get('/onboarding/status', auth, onboardingCtrl.status);

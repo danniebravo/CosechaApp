@@ -19,7 +19,8 @@
       "Bash(curl -s \"http://localhost:5173/src/index.css\")",
       "Bash(node -e \"console.log\\('react:', require\\('react/package.json'\\).version\\); console.log\\('react-leaflet:', require\\('react-leaflet/package.json'\\).version\\); console.log\\('@react-leaflet/core:', require\\('@react-leaflet/core/package.json'\\).version\\); console.log\\('leaflet:', require\\('leaflet/package.json'\\).version\\);\")",
       "Bash(node -e \"const p = require\\('C:/Users/LENOVO/Desktop/Agro/cosecha-app/frontend/node_modules/react-leaflet/package.json'\\); console.log\\('version:', p.version\\); console.log\\('peerDeps:', JSON.stringify\\(p.peerDependencies, null, 2\\)\\);\")",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(code .)"
     ]
   }
 }

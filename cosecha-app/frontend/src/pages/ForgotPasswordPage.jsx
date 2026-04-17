@@ -1,127 +1,240 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authAPI } from '../services/api';
-import { PREFIJOS_TELEFONICOS } from '../utils/helpers';
-import { Sprout, Mail, Phone, ArrowLeft, Check, ChevronDown, AlertTriangle } from 'lucide-react';
+import {
+  Mail, Phone, ArrowLeft, ChevronRight, ChevronDown,
+  AlertTriangle, MailCheck,
+} from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-// ── Pantalla de seleccion de metodo ──
+import { authAPI } from '../services/api';
+import { PREFIJOS_TELEFONICOS, validarEmail } from '../utils/helpers';
+import { useCountdown } from '../hooks/useCountdown';
+import AuthShell    from '../components/auth/AuthShell';
+import ResendButton from '../components/auth/ResendButton';
+import ErrorAlert   from '../components/auth/ErrorAlert';
+
+const PHONE_OTP_FALLBACK_COOLDOWN = 30;
+const EMAIL_FALLBACK_COOLDOWN     = 60;
+
+// ─── Card interactiva (selector de método) ────────────────
+function MethodCard({ icon: Icon, accent, title, description, onClick }) {
+  const accents = {
+    campo:   { bg: 'bg-campo-50',   bgHover: 'group-hover:bg-campo-100',   icon: 'text-campo-700' },
+    cosecha: { bg: 'bg-cosecha-50', bgHover: 'group-hover:bg-cosecha-100', icon: 'text-cosecha-700' },
+  };
+  const a = accents[accent] || accents.campo;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full flex items-center gap-4 p-5 rounded-2xl border border-tierra-200 bg-white text-left transition-all hover:border-campo-300 hover:shadow-lg hover:shadow-campo-900/[0.06] hover:-translate-y-0.5 active:scale-[0.99] active:translate-y-0"
+    >
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${a.bg} ${a.bgHover}`}>
+        <Icon className={`w-6 h-6 ${a.icon}`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-display font-semibold text-base text-tierra-900">{title}</p>
+        <p className="text-sm text-tierra-500 mt-0.5 leading-snug">{description}</p>
+      </div>
+      <ChevronRight className="w-5 h-5 text-tierra-300 shrink-0 transition-all group-hover:text-campo-600 group-hover:translate-x-0.5" />
+    </button>
+  );
+}
+
+// ─── Link "back" ghost (visible y consistente) ────────────
+function BackAction({ to, onClick, label = 'Volver al inicio de sesión' }) {
+  const cls =
+    'inline-flex items-center justify-center gap-1.5 w-full h-11 rounded-xl text-sm font-semibold text-tierra-600 hover:text-tierra-900 hover:bg-tierra-100/70 transition-colors';
+  if (to) return <Link to={to} className={cls}><ArrowLeft className="w-4 h-4" />{label}</Link>;
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      <ArrowLeft className="w-4 h-4" />{label}
+    </button>
+  );
+}
+
+// ─── Selector de método ───────────────────────────────────
 function MethodSelector({ onSelect }) {
   return (
-    <div className="card p-6 space-y-3 animate-slide-up">
-      <p className="text-sm text-tierra-600 text-center mb-2">Elige como recuperar tu cuenta</p>
-      <button
+    <div className="space-y-3">
+      <MethodCard
+        icon={Mail}
+        accent="campo"
+        title="Correo electrónico"
+        description="Recibe un enlace para restablecer tu contraseña"
         onClick={() => onSelect('email')}
-        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-tierra-200 hover:border-campo-400 hover:bg-campo-50 transition-all text-left"
-      >
-        <div className="w-10 h-10 bg-campo-50 rounded-xl flex items-center justify-center shrink-0">
-          <Mail className="w-5 h-5 text-campo-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-sm text-tierra-900">Por correo electronico</p>
-          <p className="text-xs text-tierra-400">Recibiras un enlace para restablecer</p>
-        </div>
-      </button>
-      <button
+      />
+      <MethodCard
+        icon={Phone}
+        accent="cosecha"
+        title="Número de teléfono"
+        description="Recibe un código de verificación por SMS"
         onClick={() => onSelect('phone')}
-        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-tierra-200 hover:border-campo-400 hover:bg-campo-50 transition-all text-left"
-      >
-        <div className="w-10 h-10 bg-cosecha-50 rounded-xl flex items-center justify-center shrink-0">
-          <Phone className="w-5 h-5 text-cosecha-600" />
-        </div>
-        <div>
-          <p className="font-semibold text-sm text-tierra-900">Por celular (SMS)</p>
-          <p className="text-xs text-tierra-400">Recibiras un codigo de verificacion</p>
-        </div>
-      </button>
+      />
     </div>
   );
 }
 
-// ── Formulario de correo ──
+// ─── Form: ingresar email ─────────────────────────────────
 function EmailForm({ onSent }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]     = useState('');
+  const [error, setError]     = useState(null);
+  const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setEmail(e.target.value);
+    if (error) setError(null);
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    const err = validarEmail(email);
+    if (err) setError(err);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) { toast.error('Ingresa tu correo'); return; }
+    setTouched(true);
+    const validationErr = validarEmail(email);
+    if (validationErr) { setError(validationErr); return; }
+
     setLoading(true);
+    setError(null);
+    let retryAfter = EMAIL_FALLBACK_COOLDOWN;
+    const cleanEmail = email.trim();
     try {
-      await authAPI.forgotPassword({ email });
-    } catch { /* generico */ }
+      const res = await authAPI.forgotPassword({ email: cleanEmail });
+      retryAfter = Number(res?.retry_after_seconds) || EMAIL_FALLBACK_COOLDOWN;
+    } catch (err) {
+      // El backend solo deberia rechazar por formato (validator) — no por existencia.
+      const detalle = err?.data?.detalles?.find((d) => d.campo === 'email');
+      setError(detalle?.mensaje || 'No pudimos procesar tu solicitud. Intenta de nuevo.');
+      setLoading(false);
+      return;
+    }
     setLoading(false);
-    onSent();
+    onSent({ email: cleanEmail, cooldown: retryAfter });
   };
 
+  const inputInvalid = touched && !!error;
+
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-4 animate-slide-up" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <ErrorAlert message={error} />
+
       <div>
-        <label className="label">Correo electronico</label>
+        <label htmlFor="forgot-email" className="label">Correo electrónico</label>
         <div className="relative">
           <input
-            type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="input-field pl-11" placeholder="tu@correo.com" autoComplete="email" autoFocus
+            id="forgot-email"
+            type="email"
+            value={email}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`input-field h-12 pl-11 ${inputInvalid ? '!border-red-300 !ring-red-100 focus:!border-red-400' : ''}`}
+            placeholder="tu@correo.com"
+            autoComplete="email"
+            autoFocus
+            aria-invalid={inputInvalid || undefined}
+            aria-describedby={inputInvalid ? 'forgot-email-error' : undefined}
           />
-          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-tierra-400" />
+          <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 ${inputInvalid ? 'text-red-400' : 'text-tierra-400'}`} />
         </div>
       </div>
-      <button type="submit" disabled={loading}
-        className="btn-primary w-full flex items-center justify-center gap-2">
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full h-12 flex items-center justify-center gap-2"
+      >
         {loading && <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-        {loading ? 'Enviando...' : 'Enviar enlace de recuperacion'}
+        {loading ? 'Enviando…' : 'Enviar enlace de recuperación'}
       </button>
     </form>
   );
 }
 
-// ── Confirmacion email enviado ──
-function EmailSent() {
+// ─── Confirmación: email enviado (con resend + cooldown) ──
+function EmailSent({ email, initialCooldown }) {
+  const cooldown = useCountdown(initialCooldown || EMAIL_FALLBACK_COOLDOWN);
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    if (cooldown.active || resending) return;
+    setResending(true);
+    let retryAfter = EMAIL_FALLBACK_COOLDOWN;
+    try {
+      const res = await authAPI.forgotPassword({ email });
+      retryAfter = Number(res?.retry_after_seconds) || EMAIL_FALLBACK_COOLDOWN;
+      toast.success('Enlace reenviado');
+    } catch {
+      toast.error('No se pudo reenviar');
+    }
+    cooldown.start(retryAfter);
+    setResending(false);
+  };
+
   return (
-    <div className="card p-6 text-center animate-slide-up">
-      <div className="w-14 h-14 bg-campo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-        <Check className="w-7 h-7 text-campo-600" />
+    <div className="space-y-5">
+      <div className="text-center py-2">
+        <div className="w-16 h-16 bg-campo-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+          <MailCheck className="w-8 h-8 text-campo-600" strokeWidth={2} />
+        </div>
+        <p className="text-sm text-tierra-700">
+          Si tu cuenta existe, te enviamos un enlace a
+        </p>
+        <p className="font-semibold text-tierra-900 break-all mt-0.5">{email}</p>
+        <p className="text-xs text-tierra-400 mt-3 leading-relaxed">
+          El enlace expira en 1 hora. Revisa la carpeta de spam o promociones si no lo ves.
+        </p>
       </div>
-      <h2 className="font-display font-bold text-lg text-tierra-900 mb-2">Revisa tu correo</h2>
-      <p className="text-tierra-500 text-sm mb-1">
-        Si el correo esta registrado, recibiras un enlace para restablecer tu contrasena.
-      </p>
-      <p className="text-tierra-400 text-xs mb-6">El enlace expira en 1 hora.</p>
-      <Link to="/login" className="btn-primary inline-block w-full text-center">
-        Volver al inicio de sesion
-      </Link>
+
+      <ResendButton
+        variant="button"
+        active={cooldown.active}
+        formatted={cooldown.formatted}
+        loading={resending}
+        label="Reenviar enlace"
+        onClick={handleResend}
+      />
     </div>
   );
 }
 
-// ── Formulario de celular (paso 1: ingresar numero) ──
+// ─── Form: ingresar teléfono ──────────────────────────────
 function PhoneForm({ onOtpSent }) {
   const [prefijo, setPrefijo] = useState('+57');
-  const [numero, setNumero] = useState('');
+  const [numero, setNumero]   = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const soloDigitos = numero.replace(/\D/g, '');
-    if (!soloDigitos) { toast.error('Ingresa tu numero de celular'); return; }
+    if (!soloDigitos) { toast.error('Ingresa tu número de celular'); return; }
     const fullPhone = `${prefijo}${soloDigitos}`;
     setLoading(true);
+    let retryAfter = PHONE_OTP_FALLBACK_COOLDOWN;
     try {
-      await authAPI.forgotByPhone({ phone: fullPhone });
+      const res = await authAPI.forgotByPhone({ phone: fullPhone });
+      retryAfter = Number(res?.retry_after_seconds) || PHONE_OTP_FALLBACK_COOLDOWN;
     } catch { /* generico */ }
     setLoading(false);
-    onOtpSent(fullPhone);
+    onOtpSent({ phone: fullPhone, cooldown: retryAfter });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-4 animate-slide-up" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div>
-        <label className="label">Numero de celular</label>
+        <label htmlFor="forgot-phone" className="label">Número de celular</label>
         <div className="flex gap-2">
           <div className="relative shrink-0">
             <select
-              value={prefijo} onChange={(e) => setPrefijo(e.target.value)}
-              className="input-field !w-[120px] appearance-none pr-7 cursor-pointer"
+              value={prefijo}
+              onChange={(e) => setPrefijo(e.target.value)}
+              className="input-field h-12 !w-[120px] appearance-none pr-7 cursor-pointer"
+              aria-label="Prefijo de país"
             >
               {PREFIJOS_TELEFONICOS.map((p) => (
                 <option key={p.codigo} value={p.codigo}>{p.bandera} {p.codigo}</option>
@@ -130,61 +243,74 @@ function PhoneForm({ onOtpSent }) {
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tierra-400 pointer-events-none" />
           </div>
           <input
-            type="tel" value={numero}
+            id="forgot-phone"
+            type="tel"
+            value={numero}
             onChange={(e) => setNumero(e.target.value.replace(/[^\d]/g, ''))}
-            className="input-field flex-1" placeholder="300 123 4567"
-            inputMode="numeric" autoFocus
+            className="input-field h-12 flex-1"
+            placeholder="300 123 4567"
+            inputMode="numeric"
+            autoFocus
           />
         </div>
       </div>
-      <button type="submit" disabled={loading}
-        className="btn-primary w-full flex items-center justify-center gap-2">
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary w-full h-12 flex items-center justify-center gap-2"
+      >
         {loading && <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-        {loading ? 'Enviando...' : 'Enviar codigo SMS'}
+        {loading ? 'Enviando…' : 'Enviar código por SMS'}
       </button>
     </form>
   );
 }
 
-// ── Formulario OTP (paso 2: ingresar codigo) ──
-function OtpForm({ phone, onVerified }) {
-  const [otp, setOtp] = useState('');
+// ─── Form: ingresar OTP (paso 2) ──────────────────────────
+function OtpForm({ phone, initialCooldown, onVerified }) {
+  const [otp, setOtp]         = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [resending, setResending] = useState(false);
+  const [error, setError]     = useState(null);
+  const cooldown = useCountdown(initialCooldown || PHONE_OTP_FALLBACK_COOLDOWN);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (otp.length !== 6) { setError('El codigo debe tener 6 digitos'); return; }
-
+    if (otp.length !== 6) { setError('El código debe tener 6 dígitos'); return; }
     setLoading(true);
     setError(null);
     try {
       const result = await authAPI.verifyOtp({ phone, otp });
       onVerified(result.reset_token);
     } catch (err) {
-      setError(err.message || 'Codigo invalido');
+      setError(err.message || 'Código inválido');
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    setError(null);
+    if (cooldown.active || resending) return;
     setOtp('');
+    setError(null);
+    setResending(true);
+    let retryAfter = PHONE_OTP_FALLBACK_COOLDOWN;
     try {
-      await authAPI.forgotByPhone({ phone });
-      toast.success('Nuevo codigo enviado');
+      const res = await authAPI.forgotByPhone({ phone });
+      retryAfter = Number(res?.retry_after_seconds) || PHONE_OTP_FALLBACK_COOLDOWN;
+      toast.success('Nuevo código enviado');
     } catch {
       toast.error('Error al reenviar');
     }
+    cooldown.start(retryAfter);
+    setResending(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="card p-6 space-y-4 animate-slide-up" noValidate>
-      <div className="text-center mb-2">
-        <p className="text-sm text-tierra-600">
-          Ingresa el codigo de 6 digitos enviado a
-        </p>
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="text-center">
+        <p className="text-sm text-tierra-500">Enviamos un código a</p>
         <p className="font-semibold text-tierra-900 text-sm">{phone}</p>
       </div>
 
@@ -195,110 +321,134 @@ function OtpForm({ phone, onVerified }) {
         </div>
       )}
 
-      <div>
-        <input
-          type="text" value={otp} maxLength={6} inputMode="numeric"
-          onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '')); setError(null); }}
-          className="input-field text-center text-2xl font-mono tracking-[0.5em] placeholder:tracking-normal placeholder:text-base"
-          placeholder="000000" autoFocus autoComplete="one-time-code"
-        />
-      </div>
+      <input
+        type="text"
+        value={otp}
+        maxLength={6}
+        inputMode="numeric"
+        onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '')); setError(null); }}
+        className="input-field h-14 text-center text-2xl font-mono tracking-[0.5em] placeholder:tracking-normal placeholder:text-base"
+        placeholder="000000"
+        autoFocus
+        autoComplete="one-time-code"
+        aria-label="Código de verificación de 6 dígitos"
+      />
 
-      <button type="submit" disabled={loading || otp.length !== 6}
-        className="btn-primary w-full flex items-center justify-center gap-2">
+      <button
+        type="submit"
+        disabled={loading || otp.length !== 6}
+        className="btn-primary w-full h-12 flex items-center justify-center gap-2"
+      >
         {loading && <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-        {loading ? 'Verificando...' : 'Verificar codigo'}
+        {loading ? 'Verificando…' : 'Verificar código'}
       </button>
 
-      <p className="text-center text-xs text-tierra-400">
-        No recibiste el codigo?{' '}
-        <button type="button" onClick={handleResend}
-          className="text-campo-600 font-semibold hover:underline">
-          Reenviar
-        </button>
+      <p className="text-center text-xs text-tierra-400 leading-relaxed">
+        Verifica que tu número sea correcto y revisa los SMS recibidos.
       </p>
+
+      <div className="text-center pt-1">
+        <ResendButton
+          active={cooldown.active}
+          formatted={cooldown.formatted}
+          loading={resending}
+          label="Reenviar código"
+          onClick={handleResend}
+        />
+      </div>
     </form>
   );
 }
 
-// ═══════════════════════════════════════════
-// PAGINA PRINCIPAL
-// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// PÁGINA PRINCIPAL
+// ═══════════════════════════════════════════════════════════
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
 
-  // Estados del flujo
-  const [method, setMethod] = useState(null);    // null | 'email' | 'phone'
-  const [emailSent, setEmailSent] = useState(false);
-  const [phone, setPhone] = useState(null);      // numero completo para OTP
-  const [otpVerified, setOtpVerified] = useState(false);
+  const [method, setMethod]         = useState(null);   // null | 'email' | 'phone'
+  const [emailState, setEmailState] = useState(null);   // { email, cooldown }
+  const [phoneState, setPhoneState] = useState(null);   // { phone, cooldown }
 
-  // Cuando OTP es verificado, recibimos reset_token → ir a reset-password
   const handleOtpVerified = (resetToken) => {
     navigate(`/reset-password?token=${resetToken}`);
   };
 
-  // Determinar que mostrar
-  const renderContent = () => {
-    // 1. Email enviado
-    if (method === 'email' && emailSent) return <EmailSent />;
-    // 2. Formulario email
-    if (method === 'email') return <EmailForm onSent={() => setEmailSent(true)} />;
-    // 3. OTP ingreso de codigo
-    if (method === 'phone' && phone) return <OtpForm phone={phone} onVerified={handleOtpVerified} />;
-    // 4. Formulario celular
-    if (method === 'phone') return <PhoneForm onOtpSent={(p) => setPhone(p)} />;
-    // 5. Selector de metodo
-    return <MethodSelector onSelect={setMethod} />;
-  };
+  // ── Estado actual + título/subtítulo ──
+  let step;
+  if (method === 'email' && emailState) step = 'email-sent';
+  else if (method === 'email')          step = 'email-form';
+  else if (method === 'phone' && phoneState) step = 'otp-form';
+  else if (method === 'phone')          step = 'phone-form';
+  else                                  step = 'selector';
 
-  const handleBack = () => {
-    if (method === 'phone' && phone) { setPhone(null); return; }
-    if (method) { setMethod(null); setEmailSent(false); setPhone(null); return; }
+  const titles = {
+    'selector':    { t: 'Recuperar cuenta',     s: 'Elige cómo quieres continuar' },
+    'email-form':  { t: 'Por correo',            s: 'Te enviaremos un enlace para restablecer tu contraseña' },
+    'email-sent':  { t: 'Revisa tu correo',      s: 'Te hemos enviado un enlace de recuperación' },
+    'phone-form':  { t: 'Por SMS',               s: 'Te enviaremos un código de verificación' },
+    'otp-form':    { t: 'Verifica tu identidad', s: 'Ingresa el código que recibiste' },
   };
+  const { t: title, s: subtitle } = titles[step];
+
+  // ── Acción back contextual ──
+  const backToSelector = () => { setMethod(null); setEmailState(null); setPhoneState(null); };
+  const backToPhoneForm = () => setPhoneState(null);
+
+  let backAction;
+  switch (step) {
+    case 'email-form':
+    case 'phone-form':
+      backAction = <BackAction onClick={backToSelector} label="Elegir otro método" />;
+      break;
+    case 'otp-form':
+      backAction = <BackAction onClick={backToPhoneForm} label="Cambiar número" />;
+      break;
+    case 'selector':
+    case 'email-sent':
+    default:
+      backAction = <BackAction to="/login" label="Volver al inicio de sesión" />;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-campo-800 via-campo-700 to-campo-900 flex items-center justify-center p-4">
+    <AuthShell>
       <Toaster position="top-center" />
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="w-16 h-16 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Sprout className="w-9 h-9 text-white" />
-          </div>
-          <h1 className="font-display font-bold text-2xl text-white">Recuperar cuenta</h1>
-          <p className="text-campo-200 text-sm mt-1">
-            {!method && 'Elige como quieres recuperar tu acceso'}
-            {method === 'email' && !emailSent && 'Te enviaremos un enlace por correo'}
-            {method === 'email' && emailSent && ''}
-            {method === 'phone' && !phone && 'Te enviaremos un codigo por SMS'}
-            {method === 'phone' && phone && 'Ingresa el codigo que recibiste'}
-          </p>
-        </div>
 
-        {renderContent()}
+      <header className="mb-7">
+        <h1 className="font-display font-bold text-3xl sm:text-[2rem] text-tierra-900 tracking-tight leading-tight">
+          {title}
+        </h1>
+        <p className="text-tierra-500 text-[15px] mt-1.5">{subtitle}</p>
+      </header>
 
-        {/* Navegacion inferior */}
-        <div className="flex items-center justify-center gap-4 mt-5">
-          {method && !emailSent && (
-            <button
-              onClick={handleBack}
-              className="inline-flex items-center gap-1.5 text-campo-200 hover:text-white text-sm transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Atras
-            </button>
-          )}
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-1.5 text-campo-200 hover:text-white text-sm transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Volver al login
-          </Link>
-        </div>
+      <div className="space-y-6">
+        {/* Contenido por paso */}
+        {step === 'selector'   && <MethodSelector onSelect={setMethod} />}
+        {step === 'email-form' && <EmailForm onSent={setEmailState} />}
+        {step === 'email-sent' && <EmailSent email={emailState.email} initialCooldown={emailState.cooldown} />}
+        {step === 'phone-form' && <PhoneForm onOtpSent={setPhoneState} />}
+        {step === 'otp-form'   && (
+          <OtpForm
+            phone={phoneState.phone}
+            initialCooldown={phoneState.cooldown}
+            onVerified={handleOtpVerified}
+          />
+        )}
+
+        {/* Back action */}
+        <div className="pt-2">{backAction}</div>
       </div>
-    </div>
+
+      {/* Footer cuando no es el selector inicial: ofrecer link directo al login */}
+      {step !== 'selector' && step !== 'email-sent' && (
+        <p className="text-center text-tierra-500 text-sm mt-6">
+          ¿Recordaste tu contraseña?{' '}
+          <Link to="/login" className="font-semibold text-campo-700 hover:text-campo-800">
+            Inicia sesión
+          </Link>
+        </p>
+      )}
+    </AuthShell>
   );
 }
