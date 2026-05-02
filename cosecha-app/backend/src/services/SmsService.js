@@ -1,10 +1,9 @@
 /**
  * Servicio de envio de SMS usando Twilio.
- * Si las credenciales no estan configuradas, imprime en consola (modo desarrollo).
+ * - Con credenciales Twilio: envia SMS reales
+ * - Sin credenciales: imprime en consola (modo desarrollo)
  *
- * Uso:
- *   const smsService = require('./SmsService');
- *   await smsService.sendOtp({ to: '+573001234567', code: '123456' });
+ * En produccion, si el envio falla, lanza error para que el usuario lo sepa.
  */
 
 class SmsService {
@@ -13,6 +12,7 @@ class SmsService {
     this.authToken = process.env.TWILIO_AUTH_TOKEN;
     this.from = process.env.TWILIO_PHONE_NUMBER;
     this.client = null;
+    this.isProduction = process.env.NODE_ENV === 'production';
 
     if (this.accountSid && this.authToken && this.from) {
       const twilio = require('twilio');
@@ -23,12 +23,25 @@ class SmsService {
     }
   }
 
+  /** Estado del servicio para health check */
+  get isConfigured() {
+    return !!this.client;
+  }
+
   /**
    * Envia un SMS generico.
-   * @returns {{ success: boolean, sid?: string, error?: string }}
+   * En produccion: lanza error si falla el envio.
+   * En desarrollo sin credenciales: imprime en consola.
    */
   async send({ to, body }) {
     if (!this.client) {
+      if (this.isProduction) {
+        console.error('📱 Twilio no configurado en produccion');
+        const err = new Error('Servicio de SMS no configurado. Contacta al administrador.');
+        err.status = 503;
+        throw err;
+      }
+
       console.log('══════════════════════════════════════════');
       console.log('📱 SMS (consola)');
       console.log('Para:', to);
@@ -48,12 +61,17 @@ class SmsService {
       return { success: true, sid: message.sid };
     } catch (err) {
       console.error('📱 Error enviando SMS:', err.message);
+      if (this.isProduction) {
+        const error = new Error('No se pudo enviar el SMS. Verifica tu numero e intenta de nuevo.');
+        error.status = 502;
+        throw error;
+      }
       return { success: false, error: err.message };
     }
   }
 
   /**
-   * Envia codigo OTP de recuperacion.
+   * Envia codigo OTP por SMS.
    */
   async sendOtp({ to, code }) {
     return this.send({

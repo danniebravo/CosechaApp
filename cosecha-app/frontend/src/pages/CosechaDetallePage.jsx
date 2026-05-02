@@ -4,18 +4,30 @@ import { useApi } from '../hooks/useApi';
 import { cosechasAPI, actividadesAPI, gastosAPI, ventasAPI } from '../services/api';
 import { PageHeader, LoadingPage, ErrorMsg, StatCard, Modal, ConfirmDialog } from '../components/ui';
 import { formatCOP, formatKg, formatDate, formatDateInput, ESTADOS, TIPOS_ACTIVIDAD, TIPOS_GASTO, CALIDADES } from '../utils/helpers';
+import CropTimeline from '../components/CropTimeline';
+import TrabajadoresTab from '../components/cosecha/TrabajadoresTab';
+import InsumosTab from '../components/cosecha/InsumosTab';
+import EmpaquesYProcesosTab from '../components/cosecha/EmpaquesYProcesosTab';
+import FletesTab from '../components/cosecha/FletesTab';
+import VentasTab from '../components/cosecha/VentasTab';
+import AmedierosTab from '../components/cosecha/AmedierosTab';
 import {
   DollarSign, TrendingUp, Package, AlertTriangle, Activity,
-  Receipt, ShoppingCart, BarChart3, Plus, Trash2, Edit2
+  Receipt, ShoppingCart, BarChart3, Users, Box, Truck, Handshake, Download, Plus, Trash2, Edit2
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const TABS = [
   { id: 'resumen', label: 'Resumen', icon: BarChart3 },
-  { id: 'actividades', label: 'Actividades', icon: Activity },
+  { id: 'trabajadores', label: 'Equipo', icon: Users },
+  { id: 'insumos', label: 'Insumos', icon: Package },
+  { id: 'empaques', label: 'Empaques', icon: Box },
+  { id: 'fletes', label: 'Fletes', icon: Truck },
+  { id: 'actividades', label: 'Labores', icon: Activity },
   { id: 'gastos', label: 'Gastos', icon: Receipt },
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
+  { id: 'socios', label: 'Socios', icon: Handshake },
 ];
 const PIE_COLORS = ['#3d9641', '#eba809', '#b07a42', '#d97706', '#6366f1', '#ec4899'];
 
@@ -30,6 +42,7 @@ export default function CosechaDetallePage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [prodModal, setProdModal] = useState(false);
   const [prodForm, setProdForm] = useState({});
+  const [exporting, setExporting] = useState(false);
 
   if (loading) return <LoadingPage />;
   if (error) return <ErrorMsg message={error} onRetry={refetch} />;
@@ -41,6 +54,39 @@ export default function CosechaDetallePage() {
   const produccionTotal = parseFloat(cosecha.produccion_total || 0);
   const utilidad = ingresoTotal - costoTotal;
   const costoPorKg = produccionTotal > 0 ? costoTotal / produccionTotal : 0;
+  const margen = ingresoTotal > 0 ? ((utilidad / ingresoTotal) * 100) : 0;
+  const roi = costoTotal > 0 ? ((utilidad / costoTotal) * 100) : 0;
+  const unidad = cosecha.unidad_registro || 'kilos';
+
+  // Desglose de costos desde los campos nuevos
+  const costoTrabajadores = parseFloat(cosecha.costo_trabajadores || 0);
+  const costoInsumos = parseFloat(cosecha.costo_insumos || 0);
+  const costoEmpaques = parseFloat(cosecha.costo_empaques || 0);
+  const costoFletes = parseFloat(cosecha.costo_fletes || 0);
+  const costoProcesos = parseFloat(cosecha.costo_procesos || 0);
+  const costoActividades = parseFloat(cosecha.costo_total || 0) - costoTrabajadores - costoInsumos - costoEmpaques - costoFletes - costoProcesos;
+  const perdidas = parseFloat(cosecha.perdidas || 0);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const response = await fetch(`${apiUrl}/cosechas/${id}/exportar`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Error al exportar');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cosecha_${cosecha.variedad_papa.replace(/\s+/g, '_')}_${cosecha.fecha_siembra}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Excel descargado');
+    } catch (err) { toast.error('Error al exportar Excel'); }
+    finally { setExporting(false); }
+  };
 
   // ── Handlers genéricos ──
   const onChange = (e) => {
@@ -155,17 +201,32 @@ export default function CosechaDetallePage() {
         subtitle={`${cosecha.lote?.finca_nombre} · ${cosecha.lote?.nombre} · Siembra: ${formatDate(cosecha.fecha_siembra)}`}
         onBack={() => navigate('/cosechas')}
         action={
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${est.color}`}>{est.label}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={handleExport} disabled={exporting}
+              className="btn-secondary text-xs flex items-center gap-1.5">
+              <Download className={`w-3.5 h-3.5 ${exporting ? 'animate-bounce' : ''}`} />
+              {exporting ? 'Exportando...' : 'Excel'}
+            </button>
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${est.color}`}>{est.label}</span>
+          </div>
         }
       />
 
       {/* Stats principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <StatCard label="Producción" value={formatKg(produccionTotal)} icon={Package} color="cosecha" />
-        <StatCard label="Costo total" value={formatCOP(costoTotal)} icon={Receipt} color="tierra" />
-        <StatCard label="Ingresos" value={formatCOP(ingresoTotal)} icon={DollarSign} color="campo" />
-        <StatCard label="Utilidad" value={formatCOP(utilidad)} icon={TrendingUp} color={utilidad >= 0 ? 'campo' : 'red'}
-          sub={costoPorKg > 0 ? `Costo/kg: ${formatCOP(costoPorKg)}` : undefined} />
+        <StatCard label="Produccion" value={formatKg(produccionTotal)} icon={Package} color="cosecha"
+          sub={perdidas > 0 ? `Perdidas: ${formatKg(perdidas)}` : undefined} />
+        <StatCard label="Inversion" value={formatCOP(costoTotal)} icon={Receipt} color="tierra"
+          sub={costoPorKg > 0 ? `${formatCOP(costoPorKg)}/kg` : undefined} />
+        <StatCard label="Ingresos" value={formatCOP(ingresoTotal)} icon={DollarSign} color="campo"
+          sub={margen !== 0 ? `Margen: ${margen.toFixed(1)}%` : undefined} />
+        <StatCard
+          label={utilidad >= 0 ? 'Utilidad' : 'Perdida'}
+          value={formatCOP(Math.abs(utilidad))}
+          icon={TrendingUp}
+          color={utilidad >= 0 ? 'campo' : 'red'}
+          sub={roi !== 0 ? `ROI: ${roi.toFixed(1)}%` : undefined}
+        />
       </div>
 
       {/* Tabs */}
@@ -183,6 +244,13 @@ export default function CosechaDetallePage() {
       {/* ═══ TAB: RESUMEN ═══ */}
       {tab === 'resumen' && (
         <div className="space-y-4">
+          {/* Timeline del cultivo */}
+          <CropTimeline
+            fechaSiembra={cosecha.fecha_siembra}
+            fechaCosechaReal={cosecha.fecha_cosecha_real}
+            estado={cosecha.estado}
+          />
+
           {/* Producción */}
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -199,11 +267,78 @@ export default function CosechaDetallePage() {
             </div>
           </div>
 
-          {/* Distribución de costos */}
+          {/* Desglose de inversión por módulo */}
+          {costoTotal > 0 && (
+            <div className="card p-5">
+              <h3 className="font-display font-bold text-base mb-4">Desglose de inversion</h3>
+              <div className="space-y-2.5">
+                {[
+                  { label: 'Trabajadores (jornadas + comida)', value: costoTrabajadores, color: 'bg-campo-500' },
+                  { label: 'Insumos (semilla, abono, etc.)', value: costoInsumos, color: 'bg-cosecha-500' },
+                  { label: 'Empaques (sacos, cabulla, bolsas)', value: costoEmpaques, color: 'bg-tierra-500' },
+                  { label: 'Fletes / Transporte', value: costoFletes, color: 'bg-blue-500' },
+                  { label: 'Procesos (arada, melgar, etc.)', value: costoProcesos, color: 'bg-purple-500' },
+                  { label: 'Otros gastos y actividades', value: Math.max(0, costoActividades), color: 'bg-tierra-400' },
+                ].filter(item => item.value > 0).map((item) => {
+                  const pct = costoTotal > 0 ? (item.value / costoTotal) * 100 : 0;
+                  return (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-tierra-600">{item.label}</span>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-tierra-800">{formatCOP(item.value)}</span>
+                          <span className="text-[10px] text-tierra-400 ml-1.5">{pct.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-tierra-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${item.color}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-2 border-t border-tierra-200">
+                  <span className="text-sm font-bold text-tierra-700">Total inversion</span>
+                  <span className="text-sm font-bold text-tierra-900">{formatCOP(costoTotal)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Balance: Ingreso vs Inversión */}
+          <div className={`card p-5 ${utilidad >= 0 ? 'border-l-4 border-l-campo-500' : 'border-l-4 border-l-red-500'}`}>
+            <h3 className="font-display font-bold text-base mb-3">
+              {utilidad >= 0 ? 'Balance positivo' : 'Balance negativo'}
+            </h3>
+            <div className="grid grid-cols-3 gap-3 text-center text-sm">
+              <div>
+                <p className="text-[10px] text-tierra-400 uppercase">Invirtio</p>
+                <p className="font-bold text-tierra-800">{formatCOP(costoTotal)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-tierra-400 uppercase">Vendio</p>
+                <p className="font-bold text-campo-700">{formatCOP(ingresoTotal)}</p>
+              </div>
+              <div>
+                <p className={`text-[10px] uppercase ${utilidad >= 0 ? 'text-campo-500' : 'text-red-400'}`}>
+                  {utilidad >= 0 ? 'Gano' : 'Perdio'}
+                </p>
+                <p className={`font-bold text-lg ${utilidad >= 0 ? 'text-campo-700' : 'text-red-600'}`}>
+                  {formatCOP(Math.abs(utilidad))}
+                </p>
+              </div>
+            </div>
+            {perdidas > 0 && (
+              <div className="mt-3 bg-red-50 rounded-lg px-3 py-2 text-xs text-red-700">
+                Perdidas en produccion: {formatKg(perdidas)} — Esto afecta directamente la utilidad.
+              </div>
+            )}
+          </div>
+
+          {/* Distribución de costos (pie chart legacy) */}
           {pieData.length > 0 && (
             <div className="card p-5">
-              <h3 className="font-display font-bold text-base mb-4">Distribución de costos</h3>
-              <div className="flex items-center gap-6">
+              <h3 className="font-display font-bold text-base mb-4">Costos por tipo</h3>
+              <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="w-40 h-40 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -214,7 +349,7 @@ export default function CosechaDetallePage() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="space-y-2 flex-1">
+                <div className="space-y-2 flex-1 w-full">
                   {pieData.map((d, i) => (
                     <div key={d.name} className="flex items-center gap-2 text-xs">
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
@@ -227,6 +362,26 @@ export default function CosechaDetallePage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ═══ TAB: TRABAJADORES ═══ */}
+      {tab === 'trabajadores' && (
+        <TrabajadoresTab cosechaId={id} onCostChange={refetch} />
+      )}
+
+      {/* ═══ TAB: INSUMOS ═══ */}
+      {tab === 'insumos' && (
+        <InsumosTab cosechaId={id} onCostChange={refetch} />
+      )}
+
+      {/* ═══ TAB: EMPAQUES Y PROCESOS ═══ */}
+      {tab === 'empaques' && (
+        <EmpaquesYProcesosTab cosechaId={id} onCostChange={refetch} />
+      )}
+
+      {/* ═���═ TAB: FLETES ═══ */}
+      {tab === 'fletes' && (
+        <FletesTab cosechaId={id} onCostChange={refetch} />
       )}
 
       {/* ═══ TAB: ACTIVIDADES ═══ */}
@@ -291,34 +446,12 @@ export default function CosechaDetallePage() {
 
       {/* ═══ TAB: VENTAS ═══ */}
       {tab === 'ventas' && (
-        <div>
-          <div className="flex justify-end mb-3">
-            <button onClick={() => openModal('venta')} className="btn-primary text-sm flex items-center gap-1.5"><Plus className="w-4 h-4" /> Venta</button>
-          </div>
-          {(cosecha.ventas || []).length === 0 ? (
-            <p className="text-center text-tierra-400 py-10 text-sm">Sin ventas registradas</p>
-          ) : (
-            <div className="space-y-2">
-              {cosecha.ventas.map(v => (
-                <div key={v.id} className="card p-4 flex items-center gap-3">
-                  <div className="w-9 h-9 bg-campo-50 rounded-xl flex items-center justify-center shrink-0">
-                    <ShoppingCart className="w-4 h-4 text-campo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">{v.cliente}</p>
-                    <p className="text-xs text-tierra-400">{formatDate(v.fecha)} · {formatKg(v.cantidad_kg)} · {v.calidad}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-campo-700">{formatCOP(v.valor_total)}</p>
-                    <p className="text-[10px] text-tierra-400">{formatCOP(v.precio_por_kg)}/kg</p>
-                  </div>
-                  <button onClick={() => openModal('venta', v)} className="p-1.5 hover:bg-tierra-100 rounded-lg"><Edit2 className="w-3.5 h-3.5 text-tierra-400" /></button>
-                  <button onClick={() => setDeleteTarget({ type: 'venta', item: v })} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <VentasTab cosechaId={id} onCostChange={refetch} />
+      )}
+
+      {/* ═══ TAB: SOCIOS / AMEDIEROS ═══ */}
+      {tab === 'socios' && (
+        <AmedierosTab cosechaId={id} cosechaData={cosecha} onCostChange={refetch} />
       )}
 
       {/* ═══ MODALES ═══ */}
@@ -374,32 +507,6 @@ export default function CosechaDetallePage() {
           </div>
           <div><label className="label">Proveedor</label>
             <input name="proveedor" value={form.proveedor} onChange={onChange} className="input-field" /></div>
-          <button type="submit" disabled={saving} className="btn-primary w-full text-center">
-            {saving ? 'Guardando...' : modal.editing ? 'Actualizar' : 'Registrar'}
-          </button>
-        </form>
-      </Modal>
-
-      {/* Modal venta */}
-      <Modal isOpen={modal.open && modal.type === 'venta'} onClose={() => setModal({ open: false })}
-        title={modal.editing ? 'Editar venta' : 'Nueva venta'}>
-        <form onSubmit={saveItem} className="space-y-4">
-          <div><label className="label">Cliente *</label>
-            <input name="cliente" value={form.cliente} onChange={onChange} className="input-field" placeholder="Nombre del comprador" /></div>
-          <div><label className="label">Fecha *</label>
-            <input name="fecha" type="date" value={form.fecha} onChange={onChange} className="input-field" /></div>
-          <div><label className="label">Calidad *</label>
-            <select name="calidad" value={form.calidad} onChange={onChange} className="input-field">
-              {CALIDADES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select></div>
-          <div className="grid grid-cols-3 gap-3">
-            <div><label className="label">Cantidad (kg) *</label>
-              <input name="cantidad_kg" type="number" step="0.1" value={form.cantidad_kg} onChange={onVentaChange} className="input-field" /></div>
-            <div><label className="label">$/kg *</label>
-              <input name="precio_por_kg" type="number" step="10" value={form.precio_por_kg} onChange={onVentaChange} className="input-field" /></div>
-            <div><label className="label">Total</label>
-              <input name="valor_total" type="number" step="100" value={form.valor_total} onChange={onChange} className="input-field bg-tierra-50" /></div>
-          </div>
           <button type="submit" disabled={saving} className="btn-primary w-full text-center">
             {saving ? 'Guardando...' : modal.editing ? 'Actualizar' : 'Registrar'}
           </button>

@@ -10,6 +10,11 @@ export const formatNum = (value, decimals = 1) =>
 
 export const formatKg = (value) => `${formatNum(value)} kg`;
 
+export const formatUnidad = (value, unidad = 'kilos') =>
+  unidad === 'bultos'
+    ? `${formatNum(value, 0)} bultos`
+    : `${formatNum(value)} kg`;
+
 export const formatDate = (dateStr) => {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('es-CO', {
@@ -48,6 +53,50 @@ export const TIPOS_GASTO = [
   { value: 'otro', label: 'Otro', icon: '📦' },
 ];
 
+export const TIPOS_SUELO = [
+  { value: 'franco', label: 'Franco' },
+  { value: 'franco_arcilloso', label: 'Franco arcilloso' },
+  { value: 'franco_arenoso', label: 'Franco arenoso' },
+  { value: 'franco_limoso', label: 'Franco limoso' },
+  { value: 'arcilloso', label: 'Arcilloso' },
+  { value: 'arenoso', label: 'Arenoso' },
+  { value: 'limoso', label: 'Limoso' },
+  { value: 'humifero', label: 'Humifero (negro)' },
+  { value: 'volcanico', label: 'Volcanico (andisol)' },
+  { value: 'pedregoso', label: 'Pedregoso' },
+  { value: 'otro', label: 'Otro' },
+];
+
+export const VARIEDADES_PAPA = [
+  { value: 'Pastusa Suprema',    label: 'Pastusa Suprema',    dias: 150 },
+  { value: 'Diacol Capiro',      label: 'Diacol Capiro (R-12)', dias: 150 },
+  { value: 'Parda Pastusa',      label: 'Parda Pastusa',      dias: 165 },
+  { value: 'ICA Unica',          label: 'ICA Unica',          dias: 140 },
+  { value: 'Tuquerena',          label: 'Tuquerena',          dias: 160 },
+  { value: 'Betina',             label: 'Betina',             dias: 120 },
+  { value: 'Rubi',               label: 'Rubi',               dias: 140 },
+  { value: 'Sabanera',           label: 'Sabanera',           dias: 155 },
+  { value: 'Criolla Colombia',   label: 'Criolla Colombia',   dias: 120 },
+  { value: 'Criolla Galeras',    label: 'Criolla Galeras',    dias: 115 },
+  { value: 'Criolla Guanena',    label: 'Criolla Guanena',    dias: 110 },
+  { value: 'Superior',           label: 'Superior',           dias: 150 },
+  { value: 'ICA Nevada',         label: 'ICA Nevada',         dias: 145 },
+  { value: 'Otra',               label: 'Otra variedad',      dias: 150 },
+];
+
+/**
+ * Calcula fecha de cosecha estimada a partir de fecha de siembra y variedad.
+ * Retorna string ISO date o null.
+ */
+export const calcularFechaCosechaEstimada = (fechaSiembra, variedad) => {
+  if (!fechaSiembra) return null;
+  const config = VARIEDADES_PAPA.find((v) => v.value === variedad);
+  const dias = config?.dias || 150;
+  const siembra = new Date(fechaSiembra);
+  siembra.setDate(siembra.getDate() + dias);
+  return siembra.toISOString().split('T')[0];
+};
+
 export const CALIDADES = [
   { value: 'primera', label: 'Primera' },
   { value: 'segunda', label: 'Segunda' },
@@ -55,31 +104,74 @@ export const CALIDADES = [
   { value: 'descarte', label: 'Descarte' },
 ];
 
-// ── Validaciones de registro ──
+// ── Prefijos telefónicos con reglas de dígitos por país ──
 
 export const PREFIJOS_TELEFONICOS = [
-  { codigo: '+57',  pais: 'Colombia',       bandera: '\uD83C\uDDE8\uD83C\uDDF4' },
-  { codigo: '+1',   pais: 'Estados Unidos',  bandera: '\uD83C\uDDFA\uD83C\uDDF8' },
-  { codigo: '+52',  pais: 'M\u00e9xico',    bandera: '\uD83C\uDDF2\uD83C\uDDFD' },
-  { codigo: '+34',  pais: 'Espa\u00f1a',    bandera: '\uD83C\uDDEA\uD83C\uDDF8' },
-  { codigo: '+51',  pais: 'Per\u00fa',      bandera: '\uD83C\uDDF5\uD83C\uDDEA' },
-  { codigo: '+593', pais: 'Ecuador',         bandera: '\uD83C\uDDEA\uD83C\uDDE8' },
-  { codigo: '+58',  pais: 'Venezuela',       bandera: '\uD83C\uDDFB\uD83C\uDDEA' },
-  { codigo: '+56',  pais: 'Chile',           bandera: '\uD83C\uDDE8\uD83C\uDDF1' },
-  { codigo: '+54',  pais: 'Argentina',       bandera: '\uD83C\uDDE6\uD83C\uDDF7' },
-  { codigo: '+55',  pais: 'Brasil',          bandera: '\uD83C\uDDE7\uD83C\uDDF7' },
-  { codigo: '+507', pais: 'Panam\u00e1',    bandera: '\uD83C\uDDF5\uD83C\uDDE6' },
-  { codigo: '+506', pais: 'Costa Rica',      bandera: '\uD83C\uDDE8\uD83C\uDDF7' },
+  { codigo: '+57',  pais: 'Colombia',        bandera: '\uD83C\uDDE8\uD83C\uDDF4', digitos: 10, placeholder: '300 123 4567' },
+  { codigo: '+1',   pais: 'Estados Unidos',  bandera: '\uD83C\uDDFA\uD83C\uDDF8', digitos: 10, placeholder: '202 555 0123' },
+  { codigo: '+52',  pais: 'M\u00e9xico',     bandera: '\uD83C\uDDF2\uD83C\uDDFD', digitos: 10, placeholder: '55 1234 5678' },
+  { codigo: '+34',  pais: 'Espa\u00f1a',     bandera: '\uD83C\uDDEA\uD83C\uDDF8', digitos: 9,  placeholder: '612 345 678' },
+  { codigo: '+51',  pais: 'Per\u00fa',       bandera: '\uD83C\uDDF5\uD83C\uDDEA', digitos: 9,  placeholder: '912 345 678' },
+  { codigo: '+593', pais: 'Ecuador',          bandera: '\uD83C\uDDEA\uD83C\uDDE8', digitos: 9,  placeholder: '99 123 4567' },
+  { codigo: '+58',  pais: 'Venezuela',        bandera: '\uD83C\uDDFB\uD83C\uDDEA', digitos: 10, placeholder: '412 123 4567' },
+  { codigo: '+56',  pais: 'Chile',            bandera: '\uD83C\uDDE8\uD83C\uDDF1', digitos: 9,  placeholder: '9 1234 5678' },
+  { codigo: '+54',  pais: 'Argentina',        bandera: '\uD83C\uDDE6\uD83C\uDDF7', digitos: 10, placeholder: '11 1234 5678' },
+  { codigo: '+55',  pais: 'Brasil',           bandera: '\uD83C\uDDE7\uD83C\uDDF7', digitos: 11, placeholder: '11 91234 5678' },
+  { codigo: '+507', pais: 'Panam\u00e1',     bandera: '\uD83C\uDDF5\uD83C\uDDE6', digitos: 8,  placeholder: '6123 4567' },
+  { codigo: '+506', pais: 'Costa Rica',       bandera: '\uD83C\uDDE8\uD83C\uDDF7', digitos: 8,  placeholder: '8312 3456' },
+  { codigo: '+502', pais: 'Guatemala',        bandera: '\uD83C\uDDEC\uD83C\uDDF9', digitos: 8,  placeholder: '5123 4567' },
+  { codigo: '+503', pais: 'El Salvador',      bandera: '\uD83C\uDDF8\uD83C\uDDFB', digitos: 8,  placeholder: '7012 3456' },
+  { codigo: '+504', pais: 'Honduras',         bandera: '\uD83C\uDDED\uD83C\uDDF3', digitos: 8,  placeholder: '9512 3456' },
+  { codigo: '+505', pais: 'Nicaragua',        bandera: '\uD83C\uDDF3\uD83C\uDDEE', digitos: 8,  placeholder: '8123 4567' },
+  { codigo: '+591', pais: 'Bolivia',          bandera: '\uD83C\uDDE7\uD83C\uDDF4', digitos: 8,  placeholder: '7123 4567' },
+  { codigo: '+595', pais: 'Paraguay',         bandera: '\uD83C\uDDF5\uD83C\uDDFE', digitos: 9,  placeholder: '981 123 456' },
+  { codigo: '+598', pais: 'Uruguay',          bandera: '\uD83C\uDDFA\uD83C\uDDFE', digitos: 8,  placeholder: '9412 3456' },
+  { codigo: '+53',  pais: 'Cuba',             bandera: '\uD83C\uDDE8\uD83C\uDDFA', digitos: 8,  placeholder: '5123 4567' },
+  { codigo: '+1809',pais: 'Rep. Dominicana',  bandera: '\uD83C\uDDE9\uD83C\uDDF4', digitos: 7,  placeholder: '555 0123' },
 ];
+
+/**
+ * Obtener config de un prefijo. Retorna el objeto del prefijo o fallback genérico.
+ */
+export const getPrefijoConfig = (codigo) =>
+  PREFIJOS_TELEFONICOS.find((p) => p.codigo === codigo) || { codigo, digitos: 10, placeholder: 'Numero' };
 
 export const validarPassword = (password) => {
   const reglas = [
-    { test: (p) => p.length >= 8, mensaje: 'M\u00ednimo 8 caracteres', key: 'length' },
-    { test: (p) => /[A-Z]/.test(p), mensaje: 'Al menos una may\u00fascula', key: 'upper' },
-    { test: (p) => /[0-9]/.test(p), mensaje: 'Al menos un n\u00famero', key: 'number' },
-    { test: (p) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p), mensaje: 'Al menos un car\u00e1cter especial (!@#$...)', key: 'special' },
+    { test: (p) => p.length >= 8, mensaje: 'Minimo 8 caracteres', key: 'length' },
+    { test: (p) => /[a-z]/.test(p), mensaje: 'Al menos una minuscula', key: 'lower' },
+    { test: (p) => /[A-Z]/.test(p), mensaje: 'Al menos una mayuscula', key: 'upper' },
+    { test: (p) => /[0-9]/.test(p), mensaje: 'Al menos un numero', key: 'number' },
+    { test: (p) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p), mensaje: 'Al menos un caracter especial (!@#$...)', key: 'special' },
   ];
   return reglas.map((r) => ({ ...r, cumple: r.test(password || '') }));
+};
+
+/**
+ * Calcula la fuerza de la contraseña (0-4).
+ * 0 = muy débil, 1 = débil, 2 = media, 3 = fuerte, 4 = muy fuerte
+ */
+export const calcularFuerzaPassword = (password) => {
+  if (!password) return { nivel: 0, label: '', color: '' };
+  const reglas = validarPassword(password);
+  const cumplidas = reglas.filter((r) => r.cumple).length;
+
+  const niveles = [
+    { nivel: 0, label: 'Muy debil', color: 'bg-red-500' },
+    { nivel: 1, label: 'Debil', color: 'bg-red-400' },
+    { nivel: 2, label: 'Media', color: 'bg-cosecha-500' },
+    { nivel: 3, label: 'Fuerte', color: 'bg-campo-500' },
+    { nivel: 4, label: 'Muy fuerte', color: 'bg-campo-600' },
+  ];
+
+  // Bonus por longitud
+  let score = cumplidas;
+  if (password.length >= 12) score = Math.min(score + 1, 4);
+  if (password.length < 6) score = Math.max(score - 1, 0);
+
+  // Mapear 0-5 reglas a 0-4 niveles
+  const nivelIndex = Math.min(Math.max(Math.floor(score * (4 / 5)), 0), 4);
+  return niveles[nivelIndex];
 };
 
 export const validarEmail = (email) => {
@@ -93,11 +185,14 @@ export const validarEmail = (email) => {
 export const validarTelefono = (numero, prefijo = '+57') => {
   if (!numero) return null; // opcional
   const soloDigitos = numero.replace(/\s/g, '');
-  if (!/^\d+$/.test(soloDigitos)) return 'Solo n\u00fameros permitidos';
-  if (prefijo === '+57') {
-    if (soloDigitos.length !== 10) return 'Para Colombia debe tener exactamente 10 d\u00edgitos';
-  } else {
-    if (soloDigitos.length < 7 || soloDigitos.length > 15) return 'Debe tener entre 7 y 15 d\u00edgitos';
+  if (!/^\d+$/.test(soloDigitos)) return 'Solo numeros permitidos';
+
+  const config = getPrefijoConfig(prefijo);
+  const esperados = config.digitos;
+
+  if (soloDigitos.length !== esperados) {
+    const pais = config.pais || prefijo;
+    return `Para ${pais} el telefono debe tener exactamente ${esperados} digitos`;
   }
   return null;
 };

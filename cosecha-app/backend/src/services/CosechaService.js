@@ -1,12 +1,13 @@
 const { Cosecha, Lote, Finca } = require('../models');
 const { query } = require('../config/database');
+const AlertService = require('./AlertService');
 
 class CosechaService {
   async verificarPropietario(cosechaId, usuarioId) {
     const result = await query(`
       SELECT c.id FROM cosechas c
-      JOIN lotes l ON c.lote_id = l.id
-      JOIN fincas f ON l.finca_id = f.id
+      JOIN lotes l ON c.lote_id = l.id AND l.activo = true
+      JOIN fincas f ON l.finca_id = f.id AND f.activa = true
       WHERE c.id = $1 AND f.usuario_id = $2
     `, [cosechaId, usuarioId]);
     return result.rows.length > 0;
@@ -15,8 +16,8 @@ class CosechaService {
   async verificarLotePropietario(loteId, usuarioId) {
     const result = await query(`
       SELECT l.id FROM lotes l
-      JOIN fincas f ON l.finca_id = f.id
-      WHERE l.id = $1 AND f.usuario_id = $2
+      JOIN fincas f ON l.finca_id = f.id AND f.activa = true
+      WHERE l.id = $1 AND f.usuario_id = $2 AND l.activo = true
     `, [loteId, usuarioId]);
     return result.rows.length > 0;
   }
@@ -38,7 +39,24 @@ class CosechaService {
     if (!esPropietario) {
       const err = new Error('Lote no encontrado'); err.status = 404; throw err;
     }
-    return Cosecha.create(data);
+
+    // Auto-calcular fecha de cosecha estimada si no se proporcionó
+    if (data.fecha_siembra && !data.fecha_cosecha_estimada) {
+      const { fecha } = AlertService.calcularFechaCosecha(data.fecha_siembra, data.variedad_papa);
+      data.fecha_cosecha_estimada = fecha;
+    }
+
+    const cosecha = await Cosecha.create(data);
+
+    // Auto-generar alertas para la nueva cosecha
+    try {
+      await AlertService.generarAlertas(cosecha.id);
+    } catch (err) {
+      console.error('Error generando alertas:', err.message);
+      // No fallar la creación por alertas
+    }
+
+    return cosecha;
   }
 
   async actualizar(id, data, usuarioId) {

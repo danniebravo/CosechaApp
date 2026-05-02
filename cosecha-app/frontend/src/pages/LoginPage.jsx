@@ -22,31 +22,48 @@ function Divider({ children }) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { loginGoogle } = useAuth();
+  const { loginGoogle, loginApple } = useAuth();
 
   const [mode, setMode]                   = useState('email'); // 'email' | 'phone'
   const [alert, setAlert]                 = useState(null);    // { message, variant, action }
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
 
   const handleSuccess = useCallback((usr) => {
+    if (!usr.email_verified) return navigate('/verify-email');
     navigate(usr.onboarding_completed ? '/' : '/onboarding');
   }, [navigate]);
 
   const handleGoogleCredential = useCallback(async (credential) => {
-    setGoogleLoading(true);
+    setSocialLoading(true);
     setAlert(null);
     try {
       const usr = await loginGoogle(credential);
       handleSuccess(usr);
     } catch (err) {
       setAlert({
-        message: err.message || 'No se pudo iniciar sesión con Google.',
+        message: err.message || 'No se pudo iniciar sesion con Google.',
         variant: 'error',
       });
     } finally {
-      setGoogleLoading(false);
+      setSocialLoading(false);
     }
   }, [loginGoogle, handleSuccess]);
+
+  const handleAppleAuth = useCallback(async ({ identityToken, fullName }) => {
+    setSocialLoading(true);
+    setAlert(null);
+    try {
+      const usr = await loginApple(identityToken, fullName);
+      handleSuccess(usr);
+    } catch (err) {
+      setAlert({
+        message: err.message || 'No se pudo iniciar sesion con Apple.',
+        variant: 'error',
+      });
+    } finally {
+      setSocialLoading(false);
+    }
+  }, [loginApple, handleSuccess]);
 
   const switchMode = (next) => {
     setAlert(null);
@@ -110,7 +127,8 @@ export default function LoginPage() {
           <div className="mt-3">
             <SocialAuthButtons
               onGoogleCredential={handleGoogleCredential}
-              disabled={googleLoading}
+              onAppleAuth={handleAppleAuth}
+              disabled={socialLoading}
             />
           </div>
         </>

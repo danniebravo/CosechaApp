@@ -1,17 +1,19 @@
 import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { ProtectedRoute, PublicRoute, OnboardingRoute } from './routes/Guards';
+import { ProtectedRoute, PublicRoute, OnboardingRoute, VerifyEmailRoute } from './routes/Guards';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import RegistroPage from './pages/RegistroPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import FincasPage from './pages/FincasPage';
 import LotesPage from './pages/LotesPage';
 import CosechasPage from './pages/CosechasPage';
 import CosechaDetallePage from './pages/CosechaDetallePage';
+import AlertasPage from './pages/AlertasPage';
 
 export default function App() {
   return (
@@ -32,6 +34,9 @@ export default function App() {
         <Route path="/forgot-password" element={<PublicRoute><ForgotPasswordPage /></PublicRoute>} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
+        {/* Verificación de email */}
+        <Route path="/verify-email" element={<VerifyEmailRoute><VerifyEmailPage /></VerifyEmailRoute>} />
+
         {/* Onboarding */}
         <Route path="/onboarding" element={<OnboardingRoute><OnboardingPage /></OnboardingRoute>} />
 
@@ -43,6 +48,7 @@ export default function App() {
           <Route path="lotes" element={<FincasPage />} />
           <Route path="cosechas" element={<CosechasPage />} />
           <Route path="cosechas/:id" element={<CosechaDetallePage />} />
+          <Route path="alertas" element={<AlertasPage />} />
         </Route>
 
         {/* 404 */}

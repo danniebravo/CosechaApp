@@ -17,6 +17,14 @@ const loginGoogle = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const loginApple = asyncHandler(async (req, res) => {
+  const result = await AuthService.loginApple({
+    identityToken: req.body.identity_token,
+    fullName: req.body.full_name,
+  });
+  res.json(result);
+});
+
 const sendLoginOtp = asyncHandler(async (req, res) => {
   const result = await AuthService.sendLoginOtp(req.body.phone);
   res.json(result);
@@ -50,6 +58,20 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
 const resetPassword = asyncHandler(async (req, res) => {
   const result = await AuthService.resetPassword(req.body.token, req.body.password);
+  res.json(result);
+});
+
+// ═══════════════════════════════════════════
+// VERIFICACIÓN DE EMAIL
+// ═══════════════════════════════════════════
+
+const sendEmailVerification = asyncHandler(async (req, res) => {
+  const result = await AuthService.sendEmailVerification(req.usuario.id);
+  res.json(result);
+});
+
+const verifyEmail = asyncHandler(async (req, res) => {
+  const result = await AuthService.verifyEmail(req.usuario.id, req.body.otp);
   res.json(result);
 });
 
@@ -93,7 +115,8 @@ const devResetAttempts = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  registrar, login, loginGoogle, sendLoginOtp, verifyLoginOtp,
+  registrar, login, loginGoogle, loginApple, sendLoginOtp, verifyLoginOtp,
   perfil, forgotPassword, forgotByPhone, verifyOtp, resetPassword,
+  sendEmailVerification, verifyEmail,
   devAttemptsStatus, devResetAttempts,
 };

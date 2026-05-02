@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
-import { PREFIJOS_TELEFONICOS } from '../../utils/helpers';
+import { PREFIJOS_TELEFONICOS, getPrefijoConfig } from '../../utils/helpers';
 import { useCountdown } from '../../hooks/useCountdown';
 import ResendButton from './ResendButton';
 
@@ -14,6 +14,7 @@ export default function PhoneLoginForm({ onSuccess, onBack, onAlert }) {
   const [step, setStep]           = useState('phone'); // 'phone' | 'otp'
   const [prefijo, setPrefijo]     = useState('+57');
   const [numero, setNumero]       = useState('');
+  const prefijoConfig = getPrefijoConfig(prefijo);
   const [fullPhone, setFullPhone] = useState('');
   const [otp, setOtp]             = useState('');
   const [loading, setLoading]     = useState(false);
@@ -147,9 +148,14 @@ export default function PhoneLoginForm({ onSuccess, onBack, onAlert }) {
           <div className="relative shrink-0">
             <select
               value={prefijo}
-              onChange={(e) => setPrefijo(e.target.value)}
+              onChange={(e) => {
+                const newPref = e.target.value;
+                setPrefijo(newPref);
+                const newConfig = getPrefijoConfig(newPref);
+                setNumero((prev) => prev.slice(0, newConfig.digitos));
+              }}
               className="input-field h-12 !w-[120px] appearance-none pr-7 cursor-pointer"
-              aria-label="Prefijo de país"
+              aria-label="Prefijo de pais"
             >
               {PREFIJOS_TELEFONICOS.map((p) => (
                 <option key={p.codigo} value={p.codigo}>{p.bandera} {p.codigo}</option>
@@ -161,9 +167,10 @@ export default function PhoneLoginForm({ onSuccess, onBack, onAlert }) {
             id="login-phone"
             type="tel"
             value={numero}
-            onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))}
+            onChange={(e) => setNumero(e.target.value.replace(/\D/g, '').slice(0, prefijoConfig.digitos))}
             className="input-field h-12 flex-1"
-            placeholder="300 123 4567"
+            placeholder={prefijoConfig.placeholder}
+            maxLength={prefijoConfig.digitos}
             inputMode="numeric"
             autoFocus
           />

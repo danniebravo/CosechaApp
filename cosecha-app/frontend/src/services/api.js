@@ -71,6 +71,9 @@ export const authAPI = {
   forgotByPhone: (data) => api.post('/auth/forgot-by-phone', data),
   verifyOtp: (data) => api.post('/auth/verify-otp', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
+  sendEmailVerification: () => api.post('/auth/send-email-verification'),
+  verifyEmail: (data) => api.post('/auth/verify-email', data),
+  loginApple: (data) => api.post('/auth/login-apple', data),
 };
 
 // ── Onboarding ──
@@ -106,6 +109,8 @@ export const cosechasAPI = {
   eliminar: (id) => api.delete(`/cosechas/${id}`),
   estadisticas: () => api.get('/cosechas/estadisticas'),
   dashboard: () => api.get('/cosechas/dashboard'),
+  calcularFecha: (variedad, fecha_siembra) =>
+    api.get(`/cosechas/calcular-fecha?variedad=${encodeURIComponent(variedad || '')}&fecha_siembra=${fecha_siembra}`),
 };
 
 // ── Actividades ──
@@ -132,6 +137,84 @@ export const ventasAPI = {
   crear: (data) => api.post('/ventas', data),
   actualizar: (id, data) => api.put(`/ventas/${id}`, data),
   eliminar: (id) => api.delete(`/ventas/${id}`),
+};
+
+// ── Alertas (BUGFIX: faltaba este módulo) ──
+export const alertasAPI = {
+  listarPendientes: () => api.get('/alertas'),
+  contarPendientes: () => api.get('/alertas/count'),
+  generar: (cosechaId) => api.post(`/cosechas/${cosechaId}/alertas/generar`),
+  completar: (id) => api.put(`/alertas/${id}/completar`),
+  descartar: (id) => api.put(`/alertas/${id}/descartar`),
+};
+
+// ── Trabajadores ──
+export const trabajadoresAPI = {
+  listar: () => api.get('/trabajadores'),
+  crear: (data) => api.post('/trabajadores', data),
+  actualizar: (id, data) => api.put(`/trabajadores/${id}`, data),
+  eliminar: (id) => api.delete(`/trabajadores/${id}`),
+  // Por cosecha
+  listarPorCosecha: (cosechaId) => api.get(`/cosechas/${cosechaId}/trabajadores`),
+  resumenPorCosecha: (cosechaId) => api.get(`/cosechas/${cosechaId}/trabajadores/resumen`),
+  asignar: (data) => api.post('/cosechas/trabajadores/asignar', data),
+  desasignar: (cosechaId, trabajadorId) => api.delete(`/cosechas/${cosechaId}/trabajadores/${trabajadorId}`),
+};
+
+// ── Jornadas de trabajo ──
+export const jornadasAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/jornadas`),
+  resumenDiario: (cosechaId) => api.get(`/cosechas/${cosechaId}/jornadas/resumen-diario`),
+  crear: (data) => api.post('/jornadas', data),
+  actualizar: (id, data) => api.put(`/jornadas/${id}`, data),
+  eliminar: (id) => api.delete(`/jornadas/${id}`),
+};
+
+// ── Insumos ──
+export const insumosAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/insumos`),
+  resumenPorTipo: (cosechaId) => api.get(`/cosechas/${cosechaId}/insumos/resumen-tipo`),
+  resumenPorFase: (cosechaId) => api.get(`/cosechas/${cosechaId}/insumos/resumen-fase`),
+  crear: (data) => api.post('/insumos', data),
+  actualizar: (id, data) => api.put(`/insumos/${id}`, data),
+  eliminar: (id) => api.delete(`/insumos/${id}`),
+};
+
+// ── Empaques ──
+export const empaquesAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/empaques`),
+  resumen: (cosechaId) => api.get(`/cosechas/${cosechaId}/empaques/resumen`),
+  crear: (data) => api.post('/empaques', data),
+  actualizar: (id, data) => api.put(`/empaques/${id}`, data),
+  eliminar: (id) => api.delete(`/empaques/${id}`),
+};
+
+// ── Fletes / Transporte ──
+export const fletesAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/fletes`),
+  resumen: (cosechaId) => api.get(`/cosechas/${cosechaId}/fletes/resumen`),
+  crear: (data) => api.post('/fletes', data),
+  actualizar: (id, data) => api.put(`/fletes/${id}`, data),
+  eliminar: (id) => api.delete(`/fletes/${id}`),
+};
+
+// ── Procesos de cultivo ──
+export const procesosAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/procesos`),
+  resumen: (cosechaId) => api.get(`/cosechas/${cosechaId}/procesos/resumen`),
+  crear: (data) => api.post('/procesos', data),
+  actualizar: (id, data) => api.put(`/procesos/${id}`, data),
+  eliminar: (id) => api.delete(`/procesos/${id}`),
+};
+
+// ── Amedieros / Socios ──
+export const amedierosAPI = {
+  listar: (cosechaId) => api.get(`/cosechas/${cosechaId}/amedieros`),
+  distribucion: (cosechaId) => api.get(`/cosechas/${cosechaId}/amedieros/distribucion`),
+  recalcular: (cosechaId) => api.post(`/cosechas/${cosechaId}/amedieros/recalcular`),
+  crear: (data) => api.post('/amedieros', data),
+  actualizar: (id, data) => api.put(`/amedieros/${id}`, data),
+  eliminar: (id) => api.delete(`/amedieros/${id}`),
 };
 
 export default api;

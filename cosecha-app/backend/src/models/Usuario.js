@@ -10,9 +10,12 @@ const OTP_EXPIRY_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 
 // Cooldown / anti-abuso de reenvios
+// progressive: array de segundos por intento (1ro, 2do, 3ro...)
+// Después de maxPerWindow, queda bloqueado hasta que expire la ventana.
 const RESEND_COOLDOWNS = {
-  phone_otp:   { seconds: 30, maxPerWindow: 5, windowHours: 1 },
-  reset_email: { seconds: 60, maxPerWindow: 5, windowHours: 1 },
+  phone_otp:   { progressive: [15, 30, 60, 120, 300], maxPerWindow: 5, windowHours: 1 },
+  reset_email: { progressive: [30, 60, 120, 300, 600], maxPerWindow: 5, windowHours: 1 },
+  email_otp:   { progressive: [15, 30, 60, 120, 300], maxPerWindow: 5, windowHours: 1 },
 };
 
 class Usuario extends BaseModel {
@@ -32,6 +35,11 @@ class Usuario extends BaseModel {
 
   async findByGoogleId(googleId) {
     const result = await query('SELECT * FROM usuarios WHERE google_id = $1', [googleId]);
+    return result.rows[0] || null;
+  }
+
+  async findByAppleId(appleId) {
+    const result = await query('SELECT * FROM usuarios WHERE apple_id = $1', [appleId]);
     return result.rows[0] || null;
   }
 
@@ -208,22 +216,30 @@ class Usuario extends BaseModel {
     const winMs  = cfg.windowHours * 3600 * 1000;
     const winExpired = !winStart || (now - new Date(winStart).getTime()) >= winMs;
 
-    // 1) Cooldown corto entre envios
+    // Cooldown progresivo basado en el numero de envios en la ventana
+    const progressiveIndex = winExpired ? 0 : Math.min(sendCount, cfg.progressive.length - 1);
+    const currentCooldown = cfg.progressive[progressiveIndex];
+
+    // 1) Cooldown progresivo entre envios
     if (lastSent) {
       const elapsedSec = (now - new Date(lastSent).getTime()) / 1000;
-      if (elapsedSec < cfg.seconds) {
-        return { allowed: false, retry_after: Math.ceil(cfg.seconds - elapsedSec) };
+      if (elapsedSec < currentCooldown) {
+        return { allowed: false, retry_after: Math.ceil(currentCooldown - elapsedSec), quota_exhausted: false };
       }
     }
 
-    // 2) Cuota por ventana de 1h
+    // 2) Cuota por ventana
     if (!winExpired && sendCount >= cfg.maxPerWindow) {
       const elapsedSec = (now - new Date(winStart).getTime()) / 1000;
       const waitSec = Math.ceil(cfg.windowHours * 3600 - elapsedSec);
-      return { allowed: false, retry_after: Math.max(waitSec, cfg.seconds) };
+      return { allowed: false, retry_after: waitSec, quota_exhausted: true };
     }
 
-    return { allowed: true, retry_after: cfg.seconds };
+    // Calcular el cooldown que se aplicara DESPUES del proximo envio
+    const nextIndex = winExpired ? 1 : Math.min(sendCount + 1, cfg.progressive.length - 1);
+    const nextCooldown = cfg.progressive[nextIndex];
+
+    return { allowed: true, retry_after: nextCooldown, quota_exhausted: false };
   }
 
   /**
@@ -263,6 +279,65 @@ class Usuario extends BaseModel {
         [now, id]
       );
     }
+  }
+
+  // ═══════════════════════════════════════════
+  // OTP POR EMAIL (verificación de cuenta)
+  // ═══════════════════════════════════════════
+
+  async createEmailOtp(id) {
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await query(
+      `UPDATE usuarios
+       SET email_otp_hash = $1, email_otp_expires_at = $2, email_otp_attempts = 0
+       WHERE id = $3`,
+      [otpHash, expiresAt, id]
+    );
+    return otp;
+  }
+
+  async verifyEmailOtp(id, otpInput) {
+    const user = await this.findById(id);
+    if (!user || !user.email_otp_hash) {
+      return { valid: false, expired: true, maxAttempts: false };
+    }
+
+    if (new Date() > new Date(user.email_otp_expires_at)) {
+      await this.clearEmailOtp(id);
+      return { valid: false, expired: true, maxAttempts: false };
+    }
+
+    if (user.email_otp_attempts >= OTP_MAX_ATTEMPTS) {
+      await this.clearEmailOtp(id);
+      return { valid: false, expired: false, maxAttempts: true };
+    }
+
+    const inputHash = crypto.createHash('sha256').update(String(otpInput)).digest('hex');
+    if (inputHash === user.email_otp_hash) {
+      return { valid: true, expired: false, maxAttempts: false };
+    }
+
+    await query(
+      'UPDATE usuarios SET email_otp_attempts = email_otp_attempts + 1 WHERE id = $1', [id]
+    );
+    return { valid: false, expired: false, maxAttempts: false };
+  }
+
+  async clearEmailOtp(id) {
+    await query(
+      'UPDATE usuarios SET email_otp_hash = NULL, email_otp_expires_at = NULL, email_otp_attempts = 0 WHERE id = $1',
+      [id]
+    );
+  }
+
+  async markEmailVerified(id) {
+    await query(
+      'UPDATE usuarios SET email_verified = true, email_otp_hash = NULL, email_otp_expires_at = NULL, email_otp_attempts = 0 WHERE id = $1',
+      [id]
+    );
   }
 
   // ═══════════════════════════════════════════

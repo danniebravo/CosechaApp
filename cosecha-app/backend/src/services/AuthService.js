@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
+const { verifyAppleToken } = require('./AppleAuthService');
 const Usuario = require('../models/Usuario');
 const emailService = require('./EmailService');
 const smsService = require('./SmsService');
@@ -32,17 +33,93 @@ class AuthService {
     }
 
     const usuario = await Usuario.create({
-      nombre, email, password_hash, telefono: telefonoCompleto, auth_provider: 'local',
+      nombre, email, password_hash, telefono: telefonoCompleto,
+      auth_provider: 'local', email_verified: false,
     });
+
+    // Enviar código de verificación al email
+    const otp = await Usuario.createEmailOtp(usuario.id);
+    await Usuario.registerResend(usuario.id, 'email_otp');
+    await emailService.sendVerificationCode({ to: email, nombre, code: otp });
 
     const token = this.generarToken(usuario);
     return {
       usuario: {
         id: usuario.id, nombre: usuario.nombre, email: usuario.email,
-        rol: usuario.rol, onboarding_completed: false,
+        rol: usuario.rol, onboarding_completed: false, email_verified: false,
       },
       token,
+      requires_verification: true,
+      retry_after_seconds: Usuario.RESEND_COOLDOWNS.email_otp.progressive[0],
+      ...(process.env.NODE_ENV === 'development' && { _debug_otp: otp }),
     };
+  }
+
+  // ═══════════════════════════════════════════
+  // VERIFICACIÓN DE EMAIL
+  // ═══════════════════════════════════════════
+
+  async sendEmailVerification(usuarioId) {
+    const usuario = await Usuario.findById(usuarioId);
+    if (!usuario) {
+      const err = new Error('Usuario no encontrado'); err.status = 404; throw err;
+    }
+
+    if (usuario.email_verified) {
+      return { message: 'El correo ya esta verificado', already_verified: true };
+    }
+
+    const check = Usuario.checkResendCooldown(usuario, 'email_otp');
+    if (!check.allowed) {
+      return {
+        message: check.quota_exhausted
+          ? 'Demasiados intentos. Intenta de nuevo mas tarde.'
+          : 'Codigo enviado. Revisa tu correo.',
+        retry_after_seconds: check.retry_after,
+        quota_exhausted: check.quota_exhausted,
+      };
+    }
+
+    const otp = await Usuario.createEmailOtp(usuario.id);
+    await Usuario.registerResend(usuario.id, 'email_otp');
+    await emailService.sendVerificationCode({
+      to: usuario.email, nombre: usuario.nombre, code: otp,
+    });
+
+    return {
+      message: 'Codigo enviado. Revisa tu correo.',
+      retry_after_seconds: check.retry_after,
+      ...(process.env.NODE_ENV === 'development' && { _debug_otp: otp }),
+    };
+  }
+
+  async verifyEmail(usuarioId, otp) {
+    const usuario = await Usuario.findById(usuarioId);
+    if (!usuario) {
+      const err = new Error('Usuario no encontrado'); err.status = 404; throw err;
+    }
+
+    if (usuario.email_verified) {
+      return { message: 'El correo ya esta verificado', verified: true };
+    }
+
+    const result = await Usuario.verifyEmailOtp(usuario.id, otp);
+
+    if (result.expired) {
+      const err = new Error('El codigo ha expirado. Solicita uno nuevo.');
+      err.status = 400; throw err;
+    }
+    if (result.maxAttempts) {
+      const err = new Error('Demasiados intentos. Solicita un nuevo codigo.');
+      err.status = 429; throw err;
+    }
+    if (!result.valid) {
+      const err = new Error('Codigo incorrecto');
+      err.status = 400; throw err;
+    }
+
+    await Usuario.markEmailVerified(usuario.id);
+    return { message: 'Correo verificado exitosamente', verified: true };
   }
 
   // ═══════════════════════════════════════════
@@ -152,16 +229,17 @@ class AuthService {
       usuario = await Usuario.findByEmail(email);
 
       if (usuario) {
-        // Vincular Google a cuenta existente
-        await Usuario.update(usuario.id, { google_id: googleId });
+        // Vincular Google a cuenta existente + verificar email
+        await Usuario.update(usuario.id, { google_id: googleId, email_verified: true });
       } else {
-        // 3. Crear cuenta nueva
+        // 3. Crear cuenta nueva (Google ya verificó el email)
         usuario = await Usuario.create({
           nombre: name || email.split('@')[0],
           email,
           password_hash: null,
           google_id: googleId,
           auth_provider: 'google',
+          email_verified: true,
         });
       }
     }
@@ -181,35 +259,103 @@ class AuthService {
   }
 
   // ═══════════════════════════════════════════
+  // LOGIN CON APPLE
+  // ═══════════════════════════════════════════
+
+  async loginApple({ identityToken, fullName }) {
+    const clientId = process.env.APPLE_CLIENT_ID || process.env.APPLE_SERVICE_ID;
+    if (!clientId) {
+      const err = new Error('Apple Sign In no esta configurado');
+      err.status = 503;
+      throw err;
+    }
+
+    let payload;
+    try {
+      payload = await verifyAppleToken(identityToken, clientId);
+    } catch {
+      const err = new Error('Token de Apple invalido');
+      err.status = 401;
+      throw err;
+    }
+
+    const { sub: appleId, email } = payload;
+
+    // 1. Buscar por apple_id
+    let usuario = await Usuario.findByAppleId(appleId);
+
+    if (!usuario) {
+      // 2. Buscar por email — vincular cuenta existente
+      if (email) {
+        usuario = await Usuario.findByEmail(email);
+      }
+
+      if (usuario) {
+        // Vincular Apple a cuenta existente + verificar email
+        await Usuario.update(usuario.id, { apple_id: appleId, email_verified: true });
+      } else {
+        // 3. Crear cuenta nueva
+        // Apple solo envía el nombre en el PRIMER login, después no
+        const nombre = fullName
+          ? [fullName.givenName, fullName.familyName].filter(Boolean).join(' ')
+          : (email ? email.split('@')[0] : 'Usuario');
+
+        usuario = await Usuario.create({
+          nombre,
+          email: email || `apple_${appleId}@privaterelay.appleid.com`,
+          password_hash: null,
+          apple_id: appleId,
+          auth_provider: 'apple',
+          email_verified: true,
+        });
+      }
+    }
+
+    if (!usuario.activo) {
+      const err = new Error('Cuenta desactivada');
+      err.status = 403;
+      throw err;
+    }
+
+    if (usuario.failed_login_attempts > 0 || usuario.locked_until) {
+      await Usuario.resetFailedAttempts(usuario.id);
+    }
+
+    return this._buildLoginResponse(usuario);
+  }
+
+  // ═══════════════════════════════════════════
   // LOGIN CON TELEFONO — PASO 1: ENVIAR OTP
   // ═══════════════════════════════════════════
 
   async sendLoginOtp(phone) {
     const MSG_OK   = 'Si el numero esta registrado, recibiras un codigo.';
-    const FALLBACK = Usuario.RESEND_COOLDOWNS.phone_otp.seconds;
+    const FALLBACK = Usuario.RESEND_COOLDOWNS.phone_otp.progressive[0];
 
     const usuario = await Usuario.findByPhone(phone);
 
-    // Usuario inexistente: respuesta indistinguible (no revelar existencia)
     if (!usuario || !usuario.activo) {
       return { message: MSG_OK, retry_after_seconds: FALLBACK };
     }
 
-    // Cooldown / cuota
     const check = Usuario.checkResendCooldown(usuario, 'phone_otp');
     if (!check.allowed) {
-      // No enviar; informar tiempo restante con el mismo mensaje generico
-      return { message: MSG_OK, retry_after_seconds: check.retry_after };
+      return {
+        message: check.quota_exhausted
+          ? 'Demasiados intentos. Intenta de nuevo mas tarde.'
+          : MSG_OK,
+        retry_after_seconds: check.retry_after,
+        quota_exhausted: check.quota_exhausted,
+      };
     }
 
-    // Generar OTP nuevo (invalida el anterior — sobreescribe hash) y enviar
     const otp = await Usuario.createPhoneOtp(usuario.id);
     await Usuario.registerResend(usuario.id, 'phone_otp');
     await smsService.sendOtp({ to: usuario.telefono, code: otp });
 
     return {
       message: MSG_OK,
-      retry_after_seconds: FALLBACK,
+      retry_after_seconds: check.retry_after,
       ...(process.env.NODE_ENV === 'development' && { _debug_otp: otp }),
     };
   }
@@ -255,10 +401,8 @@ class AuthService {
   // ═══════════════════════════════════════════
 
   async forgotPassword(email) {
-    // Mensaje GENÉRICO — siempre el mismo, exista o no la cuenta.
-    // No revela si el correo está registrado.
-    const MSG_OK   = 'Si el correo está registrado, recibirás un enlace de recuperación.';
-    const FALLBACK = Usuario.RESEND_COOLDOWNS.reset_email.seconds;
+    const MSG_OK   = 'Si el correo esta registrado, recibiras un enlace de recuperacion.';
+    const FALLBACK = Usuario.RESEND_COOLDOWNS.reset_email.progressive[0];
 
     const usuario = await Usuario.findByEmail(email);
 
@@ -268,10 +412,15 @@ class AuthService {
 
     const check = Usuario.checkResendCooldown(usuario, 'reset_email');
     if (!check.allowed) {
-      return { message: MSG_OK, retry_after_seconds: check.retry_after };
+      return {
+        message: check.quota_exhausted
+          ? 'Demasiados intentos. Intenta de nuevo mas tarde.'
+          : MSG_OK,
+        retry_after_seconds: check.retry_after,
+        quota_exhausted: check.quota_exhausted,
+      };
     }
 
-    // Genera token nuevo (invalida el anterior — sobreescribe el hash)
     const rawToken    = await Usuario.createResetToken(usuario.id, 'email');
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl    = `${frontendUrl}/reset-password?token=${rawToken}`;
@@ -281,7 +430,7 @@ class AuthService {
 
     return {
       message: MSG_OK,
-      retry_after_seconds: FALLBACK,
+      retry_after_seconds: check.retry_after,
       ...(process.env.NODE_ENV === 'development' && { _debug_url: resetUrl }),
     };
   }
@@ -292,7 +441,7 @@ class AuthService {
 
   async forgotByPhone(phone) {
     const MSG_OK   = 'Si el numero esta registrado, recibiras un codigo de verificacion.';
-    const FALLBACK = Usuario.RESEND_COOLDOWNS.phone_otp.seconds;
+    const FALLBACK = Usuario.RESEND_COOLDOWNS.phone_otp.progressive[0];
 
     const usuario = await Usuario.findByPhone(phone);
 
@@ -302,7 +451,13 @@ class AuthService {
 
     const check = Usuario.checkResendCooldown(usuario, 'phone_otp');
     if (!check.allowed) {
-      return { message: MSG_OK, retry_after_seconds: check.retry_after };
+      return {
+        message: check.quota_exhausted
+          ? 'Demasiados intentos. Intenta de nuevo mas tarde.'
+          : MSG_OK,
+        retry_after_seconds: check.retry_after,
+        quota_exhausted: check.quota_exhausted,
+      };
     }
 
     const otp = await Usuario.createPhoneOtp(usuario.id);
@@ -311,7 +466,7 @@ class AuthService {
 
     return {
       message: MSG_OK,
-      retry_after_seconds: FALLBACK,
+      retry_after_seconds: check.retry_after,
       ...(process.env.NODE_ENV === 'development' && { _debug_otp: otp }),
     };
   }
@@ -366,12 +521,14 @@ class AuthService {
   async _buildLoginResponse(usuario) {
     const token = this.generarToken(usuario);
     const onboarding_completed = await Usuario.checkOnboarding(usuario.id);
+    const email_verified = usuario.email_verified !== false;
     return {
       usuario: {
         id: usuario.id, nombre: usuario.nombre, email: usuario.email,
-        rol: usuario.rol, onboarding_completed,
+        rol: usuario.rol, onboarding_completed, email_verified,
       },
       token,
+      ...(!email_verified && { requires_verification: true }),
     };
   }
 
@@ -387,7 +544,9 @@ class AuthService {
     const usuario = await Usuario.findByIdSafe(id);
     if (!usuario) return null;
     const onboarding_completed = await Usuario.checkOnboarding(id);
-    return { ...usuario, onboarding_completed };
+    const full = await Usuario.findById(id);
+    const email_verified = full?.email_verified !== false;
+    return { ...usuario, onboarding_completed, email_verified };
   }
 }
 

@@ -78,16 +78,19 @@ export function Badge({ children, variant = 'default' }) {
 export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0)' }}>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-white w-full ${maxWidth} rounded-t-3xl sm:rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto`}>
-        <div className="sticky top-0 bg-white flex items-center justify-between p-5 border-b border-tierra-100 rounded-t-3xl sm:rounded-t-2xl z-10">
-          <h2 className="font-display font-bold text-lg">{title}</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-tierra-100 rounded-lg transition-colors">
+      <div className={`relative bg-white w-full ${maxWidth} rounded-t-3xl sm:rounded-2xl shadow-2xl animate-slide-up max-h-[85vh] sm:max-h-[90vh] flex flex-col`}>
+        {/* Header fijo */}
+        <div className="shrink-0 bg-white flex items-center justify-between p-5 border-b border-tierra-100 rounded-t-3xl sm:rounded-t-2xl">
+          <h2 className="font-display font-bold text-lg pr-2">{title}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-tierra-100 rounded-lg transition-colors shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        {/* Contenido scrolleable */}
+        <div className="p-5 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </div>
   );
@@ -117,17 +120,17 @@ export function StatCard({ label, value, icon: Icon, color = 'campo', sub }) {
   );
 }
 
-export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message }) {
+export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Eliminar' }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-slide-up">
         <h3 className="font-display font-bold text-lg mb-2">{title}</h3>
-        <p className="text-tierra-600 text-sm mb-5">{message}</p>
+        <p className="text-tierra-600 text-sm mb-5 leading-relaxed">{message}</p>
         <div className="flex gap-3 justify-end">
           <button onClick={onClose} className="btn-secondary text-sm">Cancelar</button>
-          <button onClick={onConfirm} className="btn-danger text-sm">Eliminar</button>
+          <button onClick={onConfirm} className="btn-danger text-sm">{confirmLabel}</button>
         </div>
       </div>
     </div>

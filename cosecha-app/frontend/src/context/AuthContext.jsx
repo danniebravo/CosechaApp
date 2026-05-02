@@ -50,6 +50,14 @@ export function AuthProvider({ children }) {
     return _saveSession(usr, token);
   };
 
+  const loginApple = async (identityToken, fullName) => {
+    const { usuario: usr, token } = await authAPI.loginApple({
+      identity_token: identityToken,
+      full_name: fullName,
+    });
+    return _saveSession(usr, token);
+  };
+
   const registro = async (datos) => {
     const { usuario: usr, token } = await authAPI.registro(datos);
     return _saveSession(usr, token);
@@ -70,12 +78,22 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  const setEmailVerified = useCallback(() => {
+    setUsuario((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, email_verified: true };
+      localStorage.setItem('usuario', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider value={{
-      usuario, cargando, login, loginGoogle, loginByOtp, registro, logout,
+      usuario, cargando, login, loginGoogle, loginApple, loginByOtp, registro, logout,
       isAuth: !!usuario,
       onboardingCompleted: usuario?.onboarding_completed ?? false,
-      setOnboardingCompleted,
+      emailVerified: usuario?.email_verified ?? true,
+      setOnboardingCompleted, setEmailVerified,
     }}>
       {children}
     </AuthContext.Provider>

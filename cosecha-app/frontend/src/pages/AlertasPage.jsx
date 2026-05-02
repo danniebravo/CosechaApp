@@ -15,10 +15,19 @@ const TIPO_CONFIG = {
   general: { icon: Bell, color: 'bg-tierra-50 text-tierra-600', label: 'General' },
 };
 
+const FILTROS = [
+  { value: 'todas', label: 'Todas' },
+  { value: 'fertilizacion', label: 'Fertilizacion' },
+  { value: 'fumigacion', label: 'Fumigacion' },
+  { value: 'riego', label: 'Riego' },
+  { value: 'cosecha_estimada', label: 'Cosecha' },
+];
+
 export default function AlertasPage() {
   const navigate = useNavigate();
   const { data: alertas, loading, error, refetch } = useApi(() => alertasAPI.listarPendientes(), []);
   const [actionLoading, setActionLoading] = useState(null);
+  const [filtro, setFiltro] = useState('todas');
 
   const handleAction = async (id, action) => {
     setActionLoading(id);
@@ -38,9 +47,14 @@ export default function AlertasPage() {
   if (loading) return <LoadingPage />;
   if (error) return <ErrorMsg message={error} onRetry={refetch} />;
 
+  // Filtrar por tipo
+  const alertasFiltradas = filtro === 'todas'
+    ? (alertas || [])
+    : (alertas || []).filter(a => a.tipo === filtro);
+
   // Agrupar por cosecha
   const grouped = {};
-  (alertas || []).forEach(a => {
+  alertasFiltradas.forEach(a => {
     const key = a.cosecha_id;
     if (!grouped[key]) {
       grouped[key] = { cosecha_id: key, variedad: a.variedad_papa, finca: a.finca_nombre, lote: a.lote_nombre, alertas: [] };
@@ -53,6 +67,35 @@ export default function AlertasPage() {
     <div className="animate-fade-in">
       <Toaster position="top-center" />
       <PageHeader title="Alertas" subtitle={`${alertas?.length || 0} pendientes`} />
+
+      {/* Filtros por tipo */}
+      {alertas && alertas.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
+          {FILTROS.map((f) => {
+            const count = f.value === 'todas'
+              ? alertas.length
+              : alertas.filter(a => a.tipo === f.value).length;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setFiltro(f.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  filtro === f.value
+                    ? 'bg-campo-600 text-white'
+                    : 'bg-white text-tierra-600 hover:bg-tierra-50 border border-tierra-200'
+                }`}
+              >
+                {f.label}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  filtro === f.value ? 'bg-white/20' : 'bg-tierra-100'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {groups.length === 0 ? (
         <EmptyState icon={Bell} title="Sin alertas" description="No tienes alertas pendientes. Las alertas se generan automaticamente al crear cosechas." />
