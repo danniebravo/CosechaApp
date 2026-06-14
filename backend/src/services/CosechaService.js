@@ -6,8 +6,8 @@ class CosechaService {
   async verificarPropietario(cosechaId, usuarioId) {
     const result = await query(`
       SELECT c.id FROM cosechas c
-      JOIN lotes l ON c.lote_id = l.id
-      JOIN fincas f ON l.finca_id = f.id
+      JOIN lotes l ON c.lote_id = l.id AND l.activo = true
+      JOIN fincas f ON l.finca_id = f.id AND f.activa = true
       WHERE c.id = $1 AND f.usuario_id = $2
     `, [cosechaId, usuarioId]);
     return result.rows.length > 0;
@@ -16,8 +16,8 @@ class CosechaService {
   async verificarLotePropietario(loteId, usuarioId) {
     const result = await query(`
       SELECT l.id FROM lotes l
-      JOIN fincas f ON l.finca_id = f.id
-      WHERE l.id = $1 AND f.usuario_id = $2
+      JOIN fincas f ON l.finca_id = f.id AND f.activa = true
+      WHERE l.id = $1 AND f.usuario_id = $2 AND l.activo = true
     `, [loteId, usuarioId]);
     return result.rows.length > 0;
   }
@@ -39,9 +39,23 @@ class CosechaService {
     if (!esPropietario) {
       const err = new Error('Lote no encontrado'); err.status = 404; throw err;
     }
+
+    // Auto-calcular fecha de cosecha estimada si no se proporcionó
+    if (data.fecha_siembra && !data.fecha_cosecha_estimada) {
+      const { fecha } = AlertService.calcularFechaCosecha(data.fecha_siembra, data.variedad_papa);
+      data.fecha_cosecha_estimada = fecha;
+    }
+
     const cosecha = await Cosecha.create(data);
-    // Auto-generar alertas agricolas
-    try { await AlertService.generarAlertas(cosecha.id); } catch (e) { /* no bloquear creacion */ }
+
+    // Auto-generar alertas para la nueva cosecha
+    try {
+      await AlertService.generarAlertas(cosecha.id);
+    } catch (err) {
+      console.error('Error generando alertas:', err.message);
+      // No fallar la creación por alertas
+    }
+
     return cosecha;
   }
 
@@ -72,7 +86,7 @@ class CosechaService {
   }
 
   async getDashboard(usuarioId) {
-    const [estadisticas, cosechasActivas, resumen, gastosHistorico, alertasPendientes] = await Promise.all([
+    const [estadisticas, cosechasActivas, resumen] = await Promise.all([
       Cosecha.getEstadisticas(usuarioId),
       query(`
         SELECT c.*, l.nombre as lote_nombre, f.nombre as finca_nombre
@@ -86,36 +100,18 @@ class CosechaService {
           EXTRACT(YEAR FROM c.fecha_siembra) as anio,
           COUNT(*) as total,
           COALESCE(SUM(c.produccion_total), 0) as produccion,
-          COALESCE(SUM(c.ingreso_total), 0) as ingresos,
-          COALESCE(SUM(c.costo_total), 0) as gastos,
           COALESCE(SUM(c.ingreso_total - c.costo_total), 0) as utilidad
         FROM cosechas c JOIN lotes l ON c.lote_id = l.id JOIN fincas f ON l.finca_id = f.id
         WHERE f.usuario_id = $1
         GROUP BY EXTRACT(YEAR FROM c.fecha_siembra), EXTRACT(MONTH FROM c.fecha_siembra)
         ORDER BY anio DESC, mes DESC LIMIT 12
       `, [usuarioId]),
-      query(`
-        SELECT
-          EXTRACT(MONTH FROM g.fecha) as mes,
-          EXTRACT(YEAR FROM g.fecha) as anio,
-          COALESCE(SUM(g.valor_total), 0) as total_gastos
-        FROM gastos g
-        JOIN cosechas c ON g.cosecha_id = c.id
-        JOIN lotes l ON c.lote_id = l.id
-        JOIN fincas f ON l.finca_id = f.id
-        WHERE f.usuario_id = $1
-        GROUP BY EXTRACT(YEAR FROM g.fecha), EXTRACT(MONTH FROM g.fecha)
-        ORDER BY anio DESC, mes DESC LIMIT 12
-      `, [usuarioId]),
-      AlertService.contarPendientes(usuarioId).catch(() => 0),
     ]);
 
     return {
       estadisticas,
       cosechasActivas: cosechasActivas.rows,
       historico: resumen.rows,
-      gastosHistorico: gastosHistorico.rows,
-      alertasPendientes,
     };
   }
 }

@@ -2,14 +2,63 @@ const Alerta = require('../models/Alerta');
 const { Cosecha } = require('../models');
 const { query } = require('../config/database');
 
+// Ciclo en días por variedad de papa colombiana
+const CICLO_POR_VARIEDAD = {
+  'pastusa_suprema':  { dias: 150, nombre: 'Pastusa Suprema' },
+  'diacol_capiro':    { dias: 150, nombre: 'Diacol Capiro (R-12)' },
+  'parda_pastusa':    { dias: 165, nombre: 'Parda Pastusa' },
+  'ica_unica':        { dias: 140, nombre: 'ICA Unica' },
+  'tuquerena':        { dias: 160, nombre: 'Tuquerena' },
+  'betina':           { dias: 120, nombre: 'Betina' },
+  'rubi':             { dias: 140, nombre: 'Rubi' },
+  'sabanera':         { dias: 155, nombre: 'Sabanera' },
+  'criolla_colombia': { dias: 120, nombre: 'Criolla Colombia' },
+  'criolla_galeras':  { dias: 115, nombre: 'Criolla Galeras' },
+  'criolla_guanena':  { dias: 110, nombre: 'Criolla Guanena' },
+  'superior':         { dias: 150, nombre: 'Superior' },
+  'ica_nevada':       { dias: 145, nombre: 'ICA Nevada' },
+};
+const DIAS_COSECHA_DEFAULT = 150;
+
 class AlertService {
   // Configuracion de alertas por defecto para papa
   CICLO_PAPA = {
-    dias_cosecha: 135,
-    fertilizacion: [30, 65, 100],       // dias desde siembra
-    fumigacion: [45, 63, 81, 99, 117],  // dias desde siembra
-    riego_intervalo: 8,                   // cada N dias
+    dias_cosecha: DIAS_COSECHA_DEFAULT,
+    fertilizacion: [30, 65, 100],
+    fumigacion: [45, 63, 81, 99, 117],
+    riego_intervalo: 8,
   };
+
+  /**
+   * Retorna la cantidad de días estimados de cosecha para una variedad.
+   * Busca por clave (value) o por nombre parcial.
+   */
+  getDiasPorVariedad(variedad) {
+    if (!variedad) return DIAS_COSECHA_DEFAULT;
+
+    // Buscar por clave exacta
+    const lower = variedad.toLowerCase().replace(/\s+/g, '_');
+    if (CICLO_POR_VARIEDAD[lower]) return CICLO_POR_VARIEDAD[lower].dias;
+
+    // Buscar por nombre parcial
+    const search = variedad.toLowerCase();
+    for (const [, config] of Object.entries(CICLO_POR_VARIEDAD)) {
+      if (config.nombre.toLowerCase().includes(search)) return config.dias;
+    }
+
+    return DIAS_COSECHA_DEFAULT;
+  }
+
+  /**
+   * Calcula la fecha de cosecha estimada.
+   */
+  calcularFechaCosecha(fechaSiembra, variedad) {
+    const dias = this.getDiasPorVariedad(variedad);
+    const siembra = new Date(fechaSiembra);
+    const cosecha = new Date(siembra);
+    cosecha.setDate(cosecha.getDate() + dias);
+    return { fecha: cosecha.toISOString().split('T')[0], dias };
+  }
 
   async generarAlertas(cosechaId) {
     const cosecha = await Cosecha.findById(cosechaId);
@@ -129,4 +178,8 @@ class AlertService {
   }
 }
 
-module.exports = new AlertService();
+const alertService = new AlertService();
+alertService.CICLO_POR_VARIEDAD = CICLO_POR_VARIEDAD;
+alertService.DIAS_COSECHA_DEFAULT = DIAS_COSECHA_DEFAULT;
+
+module.exports = alertService;
